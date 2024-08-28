@@ -103,10 +103,10 @@ class Scanner:
     def _string(self):
         while self._peek() != "\"" and not self._is_at_end():
             if self._peek() == "\n":
-                line += 1
+                self._line += 1
             self._advance()
         if self._is_at_end():
-            Lox.error(line, "Unterminated string.")
+            Lox.error(self._line, "Unterminated string.")
             return
         self._advance() # the closing "
         value = self._src[self._start+1:self._current-1]

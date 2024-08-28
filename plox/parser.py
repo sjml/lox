@@ -274,8 +274,7 @@ class Parser:
         return self._tokens[self._current - 1]
 
     def _error(self, token: Token, message: str) -> Parser.ParseError:
-        Lox.error(token, message)
-        return Parser.ParseError(message)
+        return Parser.ParseError(token, message)
 
     def _synchronize(self):
         self._advance()

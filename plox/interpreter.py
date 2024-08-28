@@ -1,4 +1,5 @@
 from typing import assert_never
+import math
 
 from .lox import LoxRuntimeError, Lox
 from . import ast
@@ -21,6 +22,13 @@ class Interpreter(ast.expr.ExprVisitor, ast.stmt.StmtVisitor):
             return "nil"
         if type(obj) == float:
             if obj.is_integer():
+                if obj == 0.0:
+                    # special case to pass jlox test suite
+                    #   (mimicking Java behavior with negative zero)
+                    if math.copysign(1.0, obj) == -1.0:
+                        return "-0"
+                    else:
+                        return "0"
                 return str(int(obj))
         if type(obj) == bool:
             return str(obj).lower()
@@ -125,6 +133,10 @@ class Interpreter(ast.expr.ExprVisitor, ast.stmt.StmtVisitor):
             return True
         if a == None:
             return False
+        if type(a) == bool and type(b) != bool:
+            return False
+        if type(b) == bool and type(a) != bool:
+            return False
         return a == b
 
     def _check_number_operand(self, operator: Token, operand: object):
@@ -135,7 +147,7 @@ class Interpreter(ast.expr.ExprVisitor, ast.stmt.StmtVisitor):
     def _check_number_operands(self, operator: Token, left: object, right: object):
         if type(left) == float and type(right) == float:
             return
-        raise LoxRuntimeError(operator, "Both operands must be numbers.")
+        raise LoxRuntimeError(operator, "Operands must be numbers.")
 
     def _check_number_or_string_operands(self, operator: Token, left: object, right: object):
         if type(left) == float and type(right) == float:

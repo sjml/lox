@@ -1,11 +1,18 @@
 from __future__ import annotations
 import sys
+from typing import TYPE_CHECKING
 
 from .token import Token, TokenType
+if TYPE_CHECKING:
+    from .interpreter import Interpreter
 
 class Lox:
     had_error = False
     had_runtime_error = False
+    if TYPE_CHECKING:
+        interpreter: Interpreter = None
+    else:
+        interpreter = None
 
     def error(problem: int|Token, message: str):
         if type(problem) == int:
