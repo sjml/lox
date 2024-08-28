@@ -3,7 +3,7 @@
 from __future__ import annotations
 import abc
 
-from .scanner import Token
+from .token import Token
 
 class Expr:
     @abc.abstractmethod

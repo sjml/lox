@@ -24,7 +24,7 @@ class AstPrinter(ast.ExprVisitor):
 # run with `python -m lox.ast_printer`
 if __name__ == "__main__":
     from .ast import Binary, Unary, Grouping, Literal
-    from .scanner import Token, TokenType
+    from .token import Token, TokenType
 
     expression = Binary(
         Unary(

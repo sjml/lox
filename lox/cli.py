@@ -1,6 +1,9 @@
 import sys
 
+from .lox import Lox
 from .scanner import Scanner
+from .parser import Parser
+from .ast_printer import AstPrinter
 
 class CLI:
     def main(self, args: list[str]):
@@ -15,7 +18,7 @@ class CLI:
     def run_file(self, path: str):
         raw = open(path, "r").read()
         self.run(raw)
-        if self.had_error:
+        if Lox.had_error:
             sys.exit(65)
 
     def run_prompt(self):
@@ -35,11 +38,17 @@ class CLI:
                 print("\nExiting lox!")
                 break
             self.run(line)
-            self.had_error = False
+            Lox.had_error = False
 
     def run(self, source: str):
         scanner = Scanner(source)
-        tokens = scanner.scan_tokens()
+        tokens = scanner._scan_tokens()
 
-        for token in tokens:
-            print(token)
+        parser = Parser(tokens)
+        expression = parser.parse()
+
+        if Lox.had_error:
+            return
+
+        printer = AstPrinter()
+        print(printer.print(expression))
