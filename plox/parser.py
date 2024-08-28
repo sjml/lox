@@ -17,7 +17,7 @@ class Parser:
 
 
     def parse(self) -> list[ast.stmt.Stmt]:
-        statements = []
+        statements: list[ast.stmt.Stmt] = []
 
         while not self._is_at_end():
             statements.append(self._declaration())
@@ -64,6 +64,8 @@ class Parser:
 
     def _declaration(self) -> ast.stmt.Stmt:
         try:
+            if self._match(TokenType.FUN):
+                return self._function("function")
             if self._match(TokenType.VAR):
                 return self._var_declaration()
             return self._statement()
@@ -79,6 +81,8 @@ class Parser:
             return self._if_statement()
         if self._match(TokenType.PRINT):
             return self._print_statement()
+        if self._match(TokenType.RETURN):
+            return self._return_statement()
         if self._match(TokenType.WHILE):
             return self._while_statement()
         if self._match(TokenType.LEFT_BRACE):
@@ -124,7 +128,6 @@ class Parser:
 
         return body
 
-
     def _if_statement(self) -> ast.stmt.Stmt:
         self._consume(TokenType.LEFT_PAREN, "Expect '(' after 'if'.")
         condition = self._expression()
@@ -141,6 +144,14 @@ class Parser:
         value = self._expression()
         self._consume(TokenType.SEMICOLON, "Expect ';' after value.")
         return ast.stmt.Print(value)
+
+    def _return_statement(self) -> ast.stmt.Stmt:
+        keyword = self._previous()
+        value = None
+        if not self._check(TokenType.SEMICOLON):
+            value = self._expression()
+        self._consume(TokenType.SEMICOLON, "Expect ';' after return value.")
+        return ast.stmt.Return(keyword, value)
 
     def _var_declaration(self) -> ast.stmt.Stmt:
         name = self._consume(TokenType.INDENTIFIER, "Expect variable name.")
@@ -162,8 +173,25 @@ class Parser:
         self._consume(TokenType.SEMICOLON, "Expect ';' after expression.")
         return ast.stmt.Expression(expr)
 
+    def _function(self, kind: str) -> ast.stmt.Function:
+        name = self._consume(TokenType.INDENTIFIER, f"Expect {kind} name.")
+        self._consume(TokenType.LEFT_PAREN, f"Expect '(' after {kind} name.")
+        parameters: list[Token] = []
+        if not self._check(TokenType.RIGHT_PAREN):
+            while True:
+                if len(parameters) >= 255:
+                    Lox.error(self._peek(), "Can't have more than 255 parameters.")
+                parameters.append(self._consume(TokenType.INDENTIFIER, "Expect parameter name."))
+                if not self._match(TokenType.COMMA):
+                    break
+        self._consume(TokenType.RIGHT_PAREN, "Expect ')' after parameters.")
+
+        self._consume(TokenType.LEFT_BRACE, f"Expect '{{' before {kind} body.")
+        body = self._block()
+        return ast.stmt.Function(name, parameters, body)
+
     def _block(self) -> list[ast.stmt.Stmt]:
-        statements = []
+        statements: list[ast.stmt.Stmt] = []
 
         while (not self._check(TokenType.RIGHT_BRACE) and not self._is_at_end()):
             statements.append(self._declaration())
@@ -217,7 +245,32 @@ class Parser:
             right = self._unary()
             return ast.expr.Unary(operator, right)
 
-        return self._primary()
+        return self._call()
+
+    def _finish_call(self, callee: ast.expr.Expr) -> ast.expr.Expr:
+        arguments: list[ast.expr.Expr] = []
+        if not self._check(TokenType.RIGHT_PAREN):
+            while True:
+                if len(arguments) >= 255:
+                    Lox.error(self._peek(), "Can't have more than 255 arguments.")
+                arguments.append(self._expression())
+                if not self._match(TokenType.COMMA):
+                    break
+        paren = self._consume(TokenType.RIGHT_PAREN, "Expect ')' after arguments.")
+
+        return ast.expr.Call(callee, paren, arguments)
+
+
+    def _call(self) -> ast.expr.Expr:
+        expr = self._primary()
+
+        while True:
+            if self._match(TokenType.LEFT_PAREN):
+                expr = self._finish_call(expr)
+            else:
+                break
+
+        return expr
 
     def _primary(self) -> ast.expr.Expr:
         if self._match(TokenType.FALSE):

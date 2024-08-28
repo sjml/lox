@@ -1,14 +1,32 @@
+from __future__ import annotations
 from typing import assert_never
 import math
+import time
 
 from .lox import LoxRuntimeError, Lox
 from . import ast
 from .scanner import Token, TokenType
 from .environment import Environment
+from .callable import Callable
+from .function import Function
+from .ret import LoxReturn
 
 class Interpreter(ast.expr.ExprVisitor, ast.stmt.StmtVisitor):
+    class ClockFunction(Callable):
+        def arity(self) -> int:
+            return 0
+
+        def call(self, interpreter: Interpreter, arguments: list[object]) -> object:
+            return time.time_ns() / 1000000.0
+
+        def __str__(self):
+            return "<native fn>"
+
     def __init__(self) -> None:
-        self._environment = Environment()
+        self.globals = Environment()
+        self._environment = self.globals
+
+        self.globals.define("clock", Interpreter.ClockFunction())
 
     def interpret(self, statements: list[ast.stmt.Stmt]):
         try:
@@ -37,7 +55,7 @@ class Interpreter(ast.expr.ExprVisitor, ast.stmt.StmtVisitor):
     def _execute(self, stmt: ast.stmt.Stmt):
         stmt.accept(self)
 
-    def _execute_block(self, statements: list[ast.stmt.Stmt], environment: Environment):
+    def execute_block(self, statements: list[ast.stmt.Stmt], environment: Environment):
         previous = self._environment
         try:
             self._environment = environment
@@ -47,7 +65,7 @@ class Interpreter(ast.expr.ExprVisitor, ast.stmt.StmtVisitor):
             self._environment = previous
 
     def visit_block_stmt(self, stmt: ast.stmt.Block):
-        self._execute_block(stmt.statements, Environment(self._environment))
+        self.execute_block(stmt.statements, Environment(self._environment))
 
     def visit_literal_expr(self, expr: ast.expr.Literal):
         return expr.value
@@ -117,6 +135,20 @@ class Interpreter(ast.expr.ExprVisitor, ast.stmt.StmtVisitor):
             case _:
                 assert_never(expr.operator.type)
 
+    def visit_call_expr(self, expr: ast.stmt.Call):
+        callee = self._evaluate(expr.callee)
+
+        arguments = []
+        for argument in expr.arguments:
+            arguments.append(self._evaluate(argument))
+
+        if not isinstance(callee, Callable):
+            raise LoxRuntimeError(expr.paren, "Can only call functions and classes.")
+        if len(arguments) != callee.arity():
+            raise LoxRuntimeError(expr.paren, f"Expected {callee.arity()} arguments but got {len(arguments)}.")
+
+        return callee.call(self, arguments)
+
 
     def _evaluate(self, expr: ast.expr.Expr) -> object:
         return expr.accept(self)
@@ -159,6 +191,10 @@ class Interpreter(ast.expr.ExprVisitor, ast.stmt.StmtVisitor):
     def visit_expression_stmt(self, stmt: ast.stmt.Expression):
         self._evaluate(stmt.expression)
 
+    def visit_function_stmt(self, stmt: ast.stmt.Function):
+        function = Function(stmt, self._environment)
+        self._environment.define(stmt.name.lexeme, function)
+
     def visit_if_stmt(self, stmt: ast.stmt.If):
         if self._is_truthy(self._evaluate(stmt.condition)):
             self._execute(stmt.then_branch)
@@ -168,6 +204,12 @@ class Interpreter(ast.expr.ExprVisitor, ast.stmt.StmtVisitor):
     def visit_print_stmt(self, stmt: ast.stmt.Print):
         value = self._evaluate(stmt.expression)
         print(self._stringify(value))
+
+    def visit_return_stmt(self, stmt: ast.stmt.Return):
+        value = None
+        if stmt.value:
+            value = self._evaluate(stmt.value)
+        raise LoxReturn(value)
 
     def visit_var_stmt(self, stmt: ast.stmt.Var):
         value = None
@@ -186,3 +228,4 @@ class Interpreter(ast.expr.ExprVisitor, ast.stmt.StmtVisitor):
 
     def visit_variable_expr(self, expr: ast.expr.Variable):
         return self._environment.get(expr.name)
+

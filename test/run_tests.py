@@ -6,6 +6,7 @@ ROOT_PATH = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
 TMP_DIR = os.path.join(ROOT_PATH, "test", "tmp")
 BOOK_REPO_PATH = os.path.join(TMP_DIR, "craftinginterpreters")
 RELATIVE_JLOX_PATH = "../../../plox.sh"
+RELATIVE_CLOX_PATH = "../../../plox.sh" # temporary until actually running a clox-clone
 
 JLOX_TESTS = {
      5 : "chap05_representing",
@@ -48,7 +49,13 @@ try:
 except:
     sys.stderr.write("Chapter number has to be integer!\n")
     sys.exit(1)
-if chapter not in JLOX_TESTS:
+if chapter in JLOX_TESTS:
+    tester = RELATIVE_JLOX_PATH
+    tester_name = "jlox"
+elif chapter in CLOX_TESTS:
+    tester = RELATIVE_CLOX_PATH
+    tester_name = "clox"
+else:
     sys.stderr.write("Invalid chapter for testing!\n")
     sys.exit(1)
 
@@ -78,5 +85,5 @@ os.chdir(BOOK_REPO_PATH)
 print("Installing dependencies...")
 result = subprocess.run(["make", "get"], stdout=open(os.devnull, 'wb'))
 
-print(f"Running tests for chapter {chapter}...")
-subprocess.run(["dart", "./tool/bin/test.dart", JLOX_TESTS[chapter], "--interpreter", RELATIVE_JLOX_PATH])
+print(f"Running {tester_name} tests for chapter {chapter}...")
+subprocess.run(["dart", "./tool/bin/test.dart", JLOX_TESTS[chapter], "--interpreter", tester])
