@@ -3,10 +3,11 @@ import sys
 from .lox import Lox
 from .scanner import Scanner
 from .parser import Parser
-from .ast_printer import AstPrinter
+from .interpreter import Interpreter
 
 class CLI:
     def main(self, args: list[str]):
+        self.interpreter = Interpreter()
         if len(args) > 1:
             print("Usage: plox [script]")
             sys.exit(64)
@@ -20,6 +21,8 @@ class CLI:
         self.run(raw)
         if Lox.had_error:
             sys.exit(65)
+        if Lox.had_runtime_error:
+            sys.exit(70)
 
     def run_prompt(self):
         def get_line():
@@ -50,5 +53,4 @@ class CLI:
         if Lox.had_error:
             return
 
-        printer = AstPrinter()
-        print(printer.print(expression))
+        self.interpreter.interpret(expression)

@@ -1,24 +1,24 @@
 from . import ast
 
-class AstPrinter(ast.ExprVisitor):
+class AstPrinter(ast.Expr.VisitorString):
     def print(self, expr: ast.Expr) -> str:
-        return expr.accept(self)
+        return expr.accept_str(self)
 
     def parenthesize(self, name: str, *exprs: ast.Expr):
-        return f"({name}{' ' if len(exprs) > 0 else ''}{' '.join([e.accept(self) for e in exprs])})"
+        return f"({name}{' ' if len(exprs) > 0 else ''}{' '.join([e.accept_str(self) for e in exprs])})"
 
-    def visit_binary_expr(self, expr: ast.Binary) -> str:
+    def visit_binary_expr_str(self, expr: ast.Binary) -> str:
         return self.parenthesize(expr.operator.lexeme, expr.left, expr.right)
 
-    def visit_grouping_expr(self, expr: ast.Grouping) -> str:
+    def visit_grouping_expr_str(self, expr: ast.Grouping) -> str:
         return self.parenthesize("group", expr.expression)
 
-    def visit_literal_expr(self, expr: ast.Literal) -> str:
+    def visit_literal_expr_str(self, expr: ast.Literal) -> str:
         if expr.value == None:
             return "nil"
         return str(expr.value)
 
-    def visit_unary_expr(self, expr: ast.Unary) -> str:
+    def visit_unary_expr_str(self, expr: ast.Unary) -> str:
         return self.parenthesize(expr.operator.lexeme, expr.right)
 
 # run with `python -m lox.ast_printer`

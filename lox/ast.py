@@ -7,25 +7,47 @@ from .token import Token
 
 class Expr:
     @abc.abstractmethod
-    def accept(self, visitor: Expr) -> str:
+    def accept_str(self, visitor: Expr) -> str:
         pass
 
-class ExprVisitor(abc.ABC):
-    @abc.abstractmethod
-    def visit_binary_expr(self, expr: Binary) -> str:
-        pass
+    class VisitorString(abc.ABC):
+        @abc.abstractmethod
+        def visit_binary_expr_str(self, expr: Binary) -> str:
+            pass
+
+        @abc.abstractmethod
+        def visit_grouping_expr_str(self, expr: Grouping) -> str:
+            pass
+
+        @abc.abstractmethod
+        def visit_literal_expr_str(self, expr: Literal) -> str:
+            pass
+
+        @abc.abstractmethod
+        def visit_unary_expr_str(self, expr: Unary) -> str:
+            pass
+
 
     @abc.abstractmethod
-    def visit_grouping_expr(self, expr: Grouping) -> str:
+    def accept_object(self, visitor: Expr) -> object:
         pass
 
-    @abc.abstractmethod
-    def visit_literal_expr(self, expr: Literal) -> str:
-        pass
+    class VisitorObject(abc.ABC):
+        @abc.abstractmethod
+        def visit_binary_expr_object(self, expr: Binary) -> object:
+            pass
 
-    @abc.abstractmethod
-    def visit_unary_expr(self, expr: Unary) -> str:
-        pass
+        @abc.abstractmethod
+        def visit_grouping_expr_object(self, expr: Grouping) -> object:
+            pass
+
+        @abc.abstractmethod
+        def visit_literal_expr_object(self, expr: Literal) -> object:
+            pass
+
+        @abc.abstractmethod
+        def visit_unary_expr_object(self, expr: Unary) -> object:
+            pass
 
 
 class Binary(Expr):
@@ -34,29 +56,41 @@ class Binary(Expr):
         self.operator: Token = operator
         self.right: Expr = right
 
-    def accept(self, visitor: ExprVisitor) -> str:
-        return visitor.visit_binary_expr(self)
+    def accept_str(self, visitor: Expr.VisitorString) -> str:
+        return visitor.visit_binary_expr_str(self)
+
+    def accept_object(self, visitor: Expr.VisitorObject) -> object:
+        return visitor.visit_binary_expr_object(self)
 
 class Grouping(Expr):
     def __init__(self, expression: Expr):
         self.expression: Expr = expression
 
-    def accept(self, visitor: ExprVisitor) -> str:
-        return visitor.visit_grouping_expr(self)
+    def accept_str(self, visitor: Expr.VisitorString) -> str:
+        return visitor.visit_grouping_expr_str(self)
+
+    def accept_object(self, visitor: Expr.VisitorObject) -> object:
+        return visitor.visit_grouping_expr_object(self)
 
 class Literal(Expr):
     def __init__(self, value):
         self.value = value
 
-    def accept(self, visitor: ExprVisitor) -> str:
-        return visitor.visit_literal_expr(self)
+    def accept_str(self, visitor: Expr.VisitorString) -> str:
+        return visitor.visit_literal_expr_str(self)
+
+    def accept_object(self, visitor: Expr.VisitorObject) -> object:
+        return visitor.visit_literal_expr_object(self)
 
 class Unary(Expr):
     def __init__(self, operator: Token, right: Expr):
         self.operator: Token = operator
         self.right: Expr = right
 
-    def accept(self, visitor: ExprVisitor) -> str:
-        return visitor.visit_unary_expr(self)
+    def accept_str(self, visitor: Expr.VisitorString) -> str:
+        return visitor.visit_unary_expr_str(self)
+
+    def accept_object(self, visitor: Expr.VisitorObject) -> object:
+        return visitor.visit_unary_expr_object(self)
 
 

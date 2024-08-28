@@ -2,6 +2,11 @@ import sys
 import os
 import io
 
+VISITOR_TYPES = {
+    "str": "String",
+    "object": "Object",
+}
+
 def define_type(out_file: io.TextIOWrapper, base_name: str, class_name: str, field_list: str):
     out_file.write(f"class {class_name}({base_name}):\n")
     out_file.write(f"    def __init__(self, {field_list}):\n")
@@ -9,9 +14,10 @@ def define_type(out_file: io.TextIOWrapper, base_name: str, class_name: str, fie
         name, *_ = [sf.strip() for sf in field.split(":")]
         out_file.write(f"        self.{field} = {name}\n")
     out_file.write("\n")
-    out_file.write(f"    def accept(self, visitor: {base_name}Visitor) -> str:\n")
-    out_file.write(f"        return visitor.visit_{class_name.lower()}_{base_name.lower()}(self)\n")
-    out_file.write("\n")
+    for t, label in VISITOR_TYPES.items():
+        out_file.write(f"    def accept_{t}(self, visitor: {base_name}.Visitor{label}) -> {t}:\n")
+        out_file.write(f"        return visitor.visit_{class_name.lower()}_{base_name.lower()}_{t}(self)\n")
+        out_file.write("\n")
 
 def define_ast(output_path: str, base_name: str, types: list[str]):
     type_datums = [[st.strip() for st in sub_type.split(":", 1)] for sub_type in types]
@@ -23,11 +29,12 @@ def define_ast(output_path: str, base_name: str, types: list[str]):
     out_file.write("import abc\n\n")
     out_file.write("from .token import Token\n\n")
     out_file.write(f"class {base_name}:\n")
-    out_file.write(f"    @abc.abstractmethod\n    def accept(self, visitor: {base_name}) -> str:\n        pass\n\n")
-    out_file.write(f"class {base_name}Visitor(abc.ABC):\n")
-    for class_name, _ in type_datums:
-        out_file.write(f"    @abc.abstractmethod\n    def visit_{class_name.lower()}_{base_name.lower()}(self, {base_name.lower()}: {class_name}) -> str:\n        pass\n\n")
-    out_file.write("\n")
+    for t, label in VISITOR_TYPES.items():
+        out_file.write(f"    @abc.abstractmethod\n    def accept_{t}(self, visitor: {base_name}) -> {t}:\n        pass\n\n")
+        out_file.write(f"    class Visitor{label}(abc.ABC):\n")
+        for class_name, _ in type_datums:
+            out_file.write(f"        @abc.abstractmethod\n        def visit_{class_name.lower()}_{base_name.lower()}_{t}(self, {base_name.lower()}: {class_name}) -> {t}:\n            pass\n\n")
+        out_file.write("\n")
 
     for class_name, fields in type_datums:
         define_type(out_file, base_name, class_name, fields)
