@@ -1,90 +1,157 @@
 from __future__ import annotations
 
-from . import ast
 from .lox import Lox
+from . import ast
 from .token import Token, TokenType
 
 class Parser:
     class ParseError(Exception):
-        def __init__(self, message: str) -> None:
-            super().__init__(message)
+        def __init__(self, token: Token, message: str) -> None:
+            super().__init__(token, message)
+            self.token = token
+            self.message = message
 
     def __init__(self, tokens: list[Token]) -> None:
-        self.tokens = tokens
-        self.current: int = 0
+        self._tokens = tokens
+        self._current: int = 0
 
-    def _expression(self) -> ast.Expr:
-        return self._equality()
 
-    def _equality(self) -> ast.Expr:
+    def parse(self) -> list[ast.stmt.Stmt]:
+        statements = []
+
+        while not self._is_at_end():
+            statements.append(self._declaration())
+
+        return statements
+
+    def _expression(self) -> ast.expr.Expr:
+        return self._assignment()
+
+    def _assignment(self) -> ast.expr.Expr:
+        expr = self._equality()
+
+        if self._match(TokenType.EQUAL):
+            equals = self._previous()
+            value = self._assignment()
+
+            if isinstance(expr, ast.expr.Variable):
+                name = expr.name
+                return ast.expr.Assign(name, value)
+
+            Lox.error(equals, "Invalid assignment target.")
+
+        return expr
+
+    def _declaration(self) -> ast.stmt.Stmt:
+        try:
+            if self._match(TokenType.VAR):
+                return self._var_declaration()
+            return self._statement()
+        except Parser.ParseError as pe:
+            Lox.error(pe.token, pe.message)
+            self._synchronize()
+            return None
+
+    def _statement(self) -> ast.stmt.Stmt:
+        if self._match(TokenType.PRINT):
+            return self._print_statement()
+        if self._match(TokenType.LEFT_BRACE):
+            return ast.stmt.Block(self._block())
+        return self._expression_statement()
+
+    def _print_statement(self) -> ast.stmt.Stmt:
+        value = self._expression()
+        self._consume(TokenType.SEMICOLON, "Expect ';' after value.")
+        return ast.stmt.Print(value)
+
+    def _var_declaration(self) -> ast.stmt.Stmt:
+        name = self._consume(TokenType.INDENTIFIER, "Expect variable name.")
+        initializer = None
+        if self._match(TokenType.EQUAL):
+            initializer = self._expression()
+        self._consume(TokenType.SEMICOLON, "Expect ';' after variable declaration.")
+        return ast.stmt.Var(name, initializer)
+
+    def _expression_statement(self) -> ast.stmt.Stmt:
+        expr = self._expression()
+        self._consume(TokenType.SEMICOLON, "Expect ';' after expression.")
+        return ast.stmt.Expression(expr)
+
+    def _block(self) -> list[ast.stmt.Stmt]:
+        statements = []
+
+        while (not self._check(TokenType.RIGHT_BRACE) and not self._is_at_end()):
+            statements.append(self._declaration())
+
+        self._consume(TokenType.RIGHT_BRACE, "Expect '}' after block.")
+        return statements
+
+    def _equality(self) -> ast.expr.Expr:
         expr = self._comparison()
 
         while self._match(TokenType.BANG_EQUAL, TokenType.EQUAL_EQUAL):
             operator = self._previous()
             right = self._comparison()
-            expr = ast.Binary(expr, operator, right)
+            expr = ast.expr.Binary(expr, operator, right)
 
         return expr
 
-    def parse(self) -> ast.Expr:
-        try:
-            return self._expression()
-        except Parser.ParseError:
-            return None
-
-    def _comparison(self) -> ast.Expr:
+    def _comparison(self) -> ast.expr.Expr:
         expr = self._term()
 
         while self._match(TokenType.GREATER, TokenType.GREATER_EQUAL, TokenType.LESS, TokenType.LESS_EQUAL):
             operator = self._previous()
             right = self._term()
-            expr = ast.Binary(expr, operator, right)
+            expr = ast.expr.Binary(expr, operator, right)
 
         return expr
 
-    def _term(self) -> ast.Expr:
+    def _term(self) -> ast.expr.Expr:
         expr = self._factor()
 
         while self._match(TokenType.MINUS, TokenType.PLUS):
             operator = self._previous()
             right = self._factor()
-            expr = ast.Binary(expr, operator, right)
+            expr = ast.expr.Binary(expr, operator, right)
 
         return expr
 
-    def _factor(self) -> ast.Expr:
+    def _factor(self) -> ast.expr.Expr:
         expr = self._unary()
 
         while self._match(TokenType.SLASH, TokenType.STAR):
             operator = self._previous()
             right = self._unary()
-            expr = ast.Binary(expr, operator, right)
+            expr = ast.expr.Binary(expr, operator, right)
 
         return expr
 
-    def _unary(self) -> ast.Expr:
+    def _unary(self) -> ast.expr.Expr:
         if self._match(TokenType.BANG, TokenType.MINUS):
             operator = self._previous()
             right = self._unary()
-            return ast.Unary(operator, right)
+            return ast.expr.Unary(operator, right)
 
         return self._primary()
 
-    def _primary(self) -> ast.Expr:
+    def _primary(self) -> ast.expr.Expr:
         if self._match(TokenType.FALSE):
-            return ast.Literal(False)
+            return ast.expr.Literal(False)
         if self._match(TokenType.TRUE):
-            return ast.Literal(True)
+            return ast.expr.Literal(True)
         if self._match(TokenType.NIL):
-            return ast.Literal(None)
+            return ast.expr.Literal(None)
 
         if self._match(TokenType.NUMBER, TokenType.STRING):
-            return ast.Literal(self._previous().literal)
+            return ast.expr.Literal(self._previous().literal)
+
+        if self._match(TokenType.INDENTIFIER):
+            return ast.expr.Variable(self._previous())
 
         if self._match(TokenType.LEFT_PAREN):
             expr = self._expression()
             self._consume(TokenType.RIGHT_PAREN, "Expect ')' after expression.")
-            return ast.Grouping(expr)
+            return ast.expr.Grouping(expr)
 
         raise self._error(self._peek(), "Expect expression.")
 
@@ -109,17 +176,17 @@ class Parser:
 
     def _advance(self):
         if not self._is_at_end():
-            self.current += 1
+            self._current += 1
         return self._previous()
 
     def _is_at_end(self) -> bool:
         return self._peek().type == TokenType.EOF
 
     def _peek(self) -> Token:
-        return self.tokens[self.current]
+        return self._tokens[self._current]
 
     def _previous(self) -> Token:
-        return self.tokens[self.current - 1]
+        return self._tokens[self._current - 1]
 
     def _error(self, token: Token, message: str) -> Parser.ParseError:
         Lox.error(token, message)

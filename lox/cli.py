@@ -47,10 +47,13 @@ class CLI:
         scanner = Scanner(source)
         tokens = scanner._scan_tokens()
 
-        parser = Parser(tokens)
-        expression = parser.parse()
+        try:
+            parser = Parser(tokens)
+            statements = parser.parse()
+        except Parser.ParseError as pe:
+            Lox.error(pe.token, pe.message)
 
         if Lox.had_error:
             return
 
-        self.interpreter.interpret(expression)
+        self.interpreter.interpret(statements)

@@ -1,14 +1,20 @@
 from typing import assert_never
 
+from lox.ast.stmt import Block
+
+from .lox import LoxRuntimeError, Lox
 from . import ast
 from .scanner import Token, TokenType
-from .lox import LoxRuntimeError, Lox
+from .environment import Environment
 
-class Interpreter(ast.Expr.Visitor):
-    def interpret(self, expression: ast.Expr):
+class Interpreter(ast.expr.ExprVisitor, ast.stmt.StmtVisitor):
+    def __init__(self) -> None:
+        self._environment = Environment()
+
+    def interpret(self, statements: list[ast.stmt.Stmt]):
         try:
-            value = self._evaluate(expression)
-            print(self._stringify(value))
+            for statement in statements:
+                self._execute(statement)
         except LoxRuntimeError as lre:
             Lox.runtime_error(lre)
 
@@ -18,13 +24,29 @@ class Interpreter(ast.Expr.Visitor):
         if type(obj) == float:
             if obj.is_integer():
                 return str(int(obj))
+        if type(obj) == bool:
+            return str(obj).lower()
         return str(obj)
 
+    def _execute(self, stmt: ast.stmt.Stmt):
+        stmt.accept(self)
 
-    def visit_literal_expr(self, expr: ast.Literal):
+    def _execute_block(self, statements: list[ast.stmt.Stmt], environment: Environment):
+        previous = self._environment
+        try:
+            self._environment = environment
+            for statement in statements:
+                self._execute(statement)
+        finally:
+            self._environment = previous
+
+    def visit_block_stmt(self, stmt: Block):
+        self._execute_block(stmt.statements, Environment(self._environment))
+
+    def visit_literal_expr(self, expr: ast.expr.Literal):
         return expr.value
 
-    def visit_unary_expr(self, expr: ast.Unary):
+    def visit_unary_expr(self, expr: ast.expr.Unary):
         right = self._evaluate(expr.right)
 
         match expr.operator.type:
@@ -36,10 +58,10 @@ class Interpreter(ast.Expr.Visitor):
             case _:
                 assert_never(expr.operator.type)
 
-    def visit_grouping_expr(self, expr: ast.Grouping):
+    def visit_grouping_expr(self, expr: ast.expr.Grouping):
         return self._evaluate(expr.expression)
 
-    def visit_binary_expr(self, expr: ast.Binary):
+    def visit_binary_expr(self, expr: ast.expr.Binary):
         left = self._evaluate(expr.left)
         right = self._evaluate(expr.right)
 
@@ -78,7 +100,7 @@ class Interpreter(ast.Expr.Visitor):
                 assert_never(expr.operator.type)
 
 
-    def _evaluate(self, expr: ast.Expr) -> object:
+    def _evaluate(self, expr: ast.expr.Expr) -> object:
         return expr.accept(self)
 
     def _is_truthy(self, obj: object) -> bool:
@@ -104,6 +126,7 @@ class Interpreter(ast.Expr.Visitor):
         if type(left) == float and type(right) == float:
             return
         raise LoxRuntimeError(operator, "Both operands must be numbers.")
+
     def _check_number_or_string_operands(self, operator: Token, left: object, right: object):
         if type(left) == float and type(right) == float:
             return
@@ -111,3 +134,23 @@ class Interpreter(ast.Expr.Visitor):
             return
         raise LoxRuntimeError(operator, "Operands must be two numbers or two strings.")
 
+    def visit_expression_stmt(self, stmt: ast.stmt.Expression):
+        self._evaluate(stmt.expression)
+
+    def visit_print_stmt(self, stmt: ast.stmt.Print):
+        value = self._evaluate(stmt.expression)
+        print(self._stringify(value))
+
+    def visit_var_stmt(self, stmt: ast.stmt.Var):
+        value = None
+        if stmt.initializer:
+            value = self._evaluate(stmt.initializer)
+        self._environment.define(stmt.name.lexeme, value)
+
+    def visit_assign_expr(self, expr: ast.expr.Assign):
+        value = self._evaluate(expr.value)
+        self._environment.assign(expr.name, value)
+        return value
+
+    def visit_variable_expr(self, expr: ast.expr.Variable):
+        return self._environment.get(expr.name)
