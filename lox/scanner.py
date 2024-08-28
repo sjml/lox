@@ -1,6 +1,6 @@
 from enum import Enum
 
-from . import Lox
+from .lox import Lox
 
 TokenType = Enum("TokenType", [
     # single-character tokens

@@ -1,5 +1,5 @@
-from lox import Lox
+from lox.cli import CLI
 
 if __name__ == "__main__":
-    Lox().main([])
+    CLI().main([])
 
