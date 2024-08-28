@@ -1,7 +1,5 @@
 from typing import assert_never
 
-from lox.ast.stmt import Block
-
 from .lox import LoxRuntimeError, Lox
 from . import ast
 from .scanner import Token, TokenType
@@ -40,11 +38,23 @@ class Interpreter(ast.expr.ExprVisitor, ast.stmt.StmtVisitor):
         finally:
             self._environment = previous
 
-    def visit_block_stmt(self, stmt: Block):
+    def visit_block_stmt(self, stmt: ast.stmt.Block):
         self._execute_block(stmt.statements, Environment(self._environment))
 
     def visit_literal_expr(self, expr: ast.expr.Literal):
         return expr.value
+
+    def visit_logical_expr(self, expr: ast.expr.Logical):
+        left = self._evaluate(expr.left)
+
+        if expr.operator.type == TokenType.OR:
+            if self._is_truthy(left):
+                return left
+        else:
+            if not self._is_truthy(left):
+                return left
+
+        return self._evaluate(expr.right)
 
     def visit_unary_expr(self, expr: ast.expr.Unary):
         right = self._evaluate(expr.right)
@@ -137,6 +147,12 @@ class Interpreter(ast.expr.ExprVisitor, ast.stmt.StmtVisitor):
     def visit_expression_stmt(self, stmt: ast.stmt.Expression):
         self._evaluate(stmt.expression)
 
+    def visit_if_stmt(self, stmt: ast.stmt.If):
+        if self._is_truthy(self._evaluate(stmt.condition)):
+            self._execute(stmt.then_branch)
+        elif stmt.else_branch:
+            self._execute(stmt.else_branch)
+
     def visit_print_stmt(self, stmt: ast.stmt.Print):
         value = self._evaluate(stmt.expression)
         print(self._stringify(value))
@@ -146,6 +162,10 @@ class Interpreter(ast.expr.ExprVisitor, ast.stmt.StmtVisitor):
         if stmt.initializer:
             value = self._evaluate(stmt.initializer)
         self._environment.define(stmt.name.lexeme, value)
+
+    def visit_while_stmt(self, stmt: ast.stmt.While):
+        while self._is_truthy(self._evaluate(stmt.condition)):
+            self._execute(stmt.body)
 
     def visit_assign_expr(self, expr: ast.expr.Assign):
         value = self._evaluate(expr.value)

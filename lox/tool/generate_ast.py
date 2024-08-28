@@ -54,6 +54,7 @@ def main(args: list[str]):
         "Binary   : left: Expr, operator: Token, right: Expr",
         "Grouping : expression: Expr",
         "Literal  : value",
+        "Logical  : left: Expr, operator: Token, right: Expr",
         "Unary    : operator: Token, right: Expr",
         "Variable : name: Token"
     ])
@@ -61,8 +62,10 @@ def main(args: list[str]):
     define_ast(args[0], "Stmt", [
         "Block      : statements: list[Expr]",
         "Expression : expression: Expr",
+        "If         : condition: Expr, then_branch: Stmt, else_branch: Stmt",
         "Print      : expression: Expr",
         "Var        : name: Token, initializer: Expr",
+        "While      : condition: Expr, body: Stmt",
     ], ["Expr"])
 
     init_path = os.path.join(args[0], "__init__.py")

@@ -21,11 +21,19 @@ class StmtVisitor(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def visit_if_stmt(self, stmt: If):
+        pass
+
+    @abc.abstractmethod
     def visit_print_stmt(self, stmt: Print):
         pass
 
     @abc.abstractmethod
     def visit_var_stmt(self, stmt: Var):
+        pass
+
+    @abc.abstractmethod
+    def visit_while_stmt(self, stmt: While):
         pass
 
 
@@ -43,6 +51,15 @@ class Expression(Stmt):
     def accept(self, visitor: Stmt.Visitor):
         return visitor.visit_expression_stmt(self)
 
+class If(Stmt):
+    def __init__(self, condition: Expr, then_branch: Stmt, else_branch: Stmt):
+        self.condition: Expr = condition
+        self.then_branch: Stmt = then_branch
+        self.else_branch: Stmt = else_branch
+
+    def accept(self, visitor: Stmt.Visitor):
+        return visitor.visit_if_stmt(self)
+
 class Print(Stmt):
     def __init__(self, expression: Expr):
         self.expression: Expr = expression
@@ -57,5 +74,13 @@ class Var(Stmt):
 
     def accept(self, visitor: Stmt.Visitor):
         return visitor.visit_var_stmt(self)
+
+class While(Stmt):
+    def __init__(self, condition: Expr, body: Stmt):
+        self.condition: Expr = condition
+        self.body: Stmt = body
+
+    def accept(self, visitor: Stmt.Visitor):
+        return visitor.visit_while_stmt(self)
 
 
