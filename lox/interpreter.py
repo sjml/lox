@@ -4,7 +4,7 @@ from . import ast
 from .scanner import Token, TokenType
 from .lox import LoxRuntimeError, Lox
 
-class Interpreter(ast.Expr.VisitorObject):
+class Interpreter(ast.Expr.Visitor):
     def interpret(self, expression: ast.Expr):
         try:
             value = self._evaluate(expression)
@@ -21,10 +21,10 @@ class Interpreter(ast.Expr.VisitorObject):
         return str(obj)
 
 
-    def visit_literal_expr_object(self, expr: ast.Literal) -> object:
+    def visit_literal_expr(self, expr: ast.Literal):
         return expr.value
 
-    def visit_unary_expr_object(self, expr: ast.Unary) -> object:
+    def visit_unary_expr(self, expr: ast.Unary):
         right = self._evaluate(expr.right)
 
         match expr.operator.type:
@@ -36,10 +36,10 @@ class Interpreter(ast.Expr.VisitorObject):
             case _:
                 assert_never(expr.operator.type)
 
-    def visit_grouping_expr_object(self, expr: ast.Grouping) -> object:
+    def visit_grouping_expr(self, expr: ast.Grouping):
         return self._evaluate(expr.expression)
 
-    def visit_binary_expr_object(self, expr: ast.Binary) -> object:
+    def visit_binary_expr(self, expr: ast.Binary):
         left = self._evaluate(expr.left)
         right = self._evaluate(expr.right)
 
@@ -79,7 +79,7 @@ class Interpreter(ast.Expr.VisitorObject):
 
 
     def _evaluate(self, expr: ast.Expr) -> object:
-        return expr.accept_object(self)
+        return expr.accept(self)
 
     def _is_truthy(self, obj: object) -> bool:
         if obj == None:
