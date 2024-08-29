@@ -5,13 +5,15 @@ from . import ast
 from .token import Token
 from .interpreter import Interpreter
 
-FunctionType = Enum("FunctionType", ["NONE", "FUNCTION"])
+FunctionType = Enum("FunctionType", ["NONE", "FUNCTION", "METHOD", "INITIALIZER"])
+ClassType = Enum("ClassType", ["NONE", "CLASS"])
 
 class Resolver(ast.expr.ExprVisitor, ast.stmt.StmtVisitor):
     def __init__(self, interpreter: Interpreter) -> None:
         self._interpreter = interpreter
         self._scopes: list[dict[str,bool]] = []
         self._current_function = FunctionType.NONE
+        self._current_class = ClassType.NONE
 
     def resolve(self, target: list[ast.stmt.Stmt]|ast.stmt.Stmt|ast.expr.Expr):
         if type(target) == list:
@@ -65,6 +67,26 @@ class Resolver(ast.expr.ExprVisitor, ast.stmt.StmtVisitor):
         self.resolve(stmt.statements)
         self._end_scope()
 
+    def visit_class_stmt(self, stmt: ast.stmt.Class):
+        enclosing_class = self._current_class
+        self._current_class = ClassType.CLASS
+
+        self._declare(stmt.name)
+        self._define(stmt.name)
+
+        self._begin_scope()
+        self._scopes[-1]["this"] = True
+
+        for method in stmt.methods:
+            declaration = FunctionType.METHOD
+            if method.name.lexeme == "init":
+                declaration = FunctionType.INITIALIZER
+            self._resolve_function(method, declaration)
+
+        self._end_scope()
+
+        self._current_class = enclosing_class
+
     def visit_expression_stmt(self, stmt: ast.stmt.Expression):
         self.resolve(stmt.expression)
 
@@ -86,6 +108,8 @@ class Resolver(ast.expr.ExprVisitor, ast.stmt.StmtVisitor):
         if self._current_function == FunctionType.NONE:
             Lox.error(stmt.keyword, "Can't return from top-level code.")
         if stmt.value:
+            if self._current_function == FunctionType.INITIALIZER:
+                Lox.error(stmt.keyword, "Can't return a value from an initializer.")
             self.resolve(stmt.value)
 
     def visit_var_stmt(self, stmt: ast.stmt.Var):
@@ -111,6 +135,9 @@ class Resolver(ast.expr.ExprVisitor, ast.stmt.StmtVisitor):
         for argument in expr.arguments:
             self.resolve(argument)
 
+    def visit_get_expr(self, expr: ast.expr.Get):
+        self.resolve(expr.obj)
+
     def visit_grouping_expr(self, expr: ast.expr.Grouping):
         self.resolve(expr.expression)
 
@@ -120,6 +147,16 @@ class Resolver(ast.expr.ExprVisitor, ast.stmt.StmtVisitor):
     def visit_logical_expr(self, expr: ast.expr.Logical):
         self.resolve(expr.left)
         self.resolve(expr.right)
+
+    def visit_set_expr(self, expr: ast.expr.Set):
+        self.resolve(expr.value)
+        self.resolve(expr.obj)
+
+    def visit_this_expr(self, expr: ast.expr.This):
+        if self._current_class == ClassType.NONE:
+            Lox.error(expr.keyword, "Can't use 'this' outside of a class.")
+            return
+        self._resolve_local(expr, expr.keyword)
 
     def visit_unary_expr(self, expr: ast.expr.Unary):
         self.resolve(expr.right)

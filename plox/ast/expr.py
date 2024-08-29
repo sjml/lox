@@ -24,6 +24,10 @@ class ExprVisitor(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def visit_get_expr(self, expr: Get):
+        pass
+
+    @abc.abstractmethod
     def visit_grouping_expr(self, expr: Grouping):
         pass
 
@@ -33,6 +37,14 @@ class ExprVisitor(abc.ABC):
 
     @abc.abstractmethod
     def visit_logical_expr(self, expr: Logical):
+        pass
+
+    @abc.abstractmethod
+    def visit_set_expr(self, expr: Set):
+        pass
+
+    @abc.abstractmethod
+    def visit_this_expr(self, expr: This):
         pass
 
     @abc.abstractmethod
@@ -70,6 +82,14 @@ class Call(Expr):
     def accept(self, visitor: Expr.Visitor):
         return visitor.visit_call_expr(self)
 
+class Get(Expr):
+    def __init__(self, obj: Expr, name: Token):
+        self.obj: Expr = obj
+        self.name: Token = name
+
+    def accept(self, visitor: Expr.Visitor):
+        return visitor.visit_get_expr(self)
+
 class Grouping(Expr):
     def __init__(self, expression: Expr):
         self.expression: Expr = expression
@@ -92,6 +112,22 @@ class Logical(Expr):
 
     def accept(self, visitor: Expr.Visitor):
         return visitor.visit_logical_expr(self)
+
+class Set(Expr):
+    def __init__(self, obj: Expr, name: Token, value: Expr):
+        self.obj: Expr = obj
+        self.name: Token = name
+        self.value: Expr = value
+
+    def accept(self, visitor: Expr.Visitor):
+        return visitor.visit_set_expr(self)
+
+class This(Expr):
+    def __init__(self, keyword: Token):
+        self.keyword: Token = keyword
+
+    def accept(self, visitor: Expr.Visitor):
+        return visitor.visit_this_expr(self)
 
 class Unary(Expr):
     def __init__(self, operator: Token, right: Expr):

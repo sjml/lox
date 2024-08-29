@@ -10,6 +10,7 @@ from .environment import Environment
 from .callable import Callable
 from .function import Function
 from .ret import LoxReturn
+from .klass import LoxClass, LoxInstance
 
 class Interpreter(ast.expr.ExprVisitor, ast.stmt.StmtVisitor):
     class ClockFunction(Callable):
@@ -71,6 +72,16 @@ class Interpreter(ast.expr.ExprVisitor, ast.stmt.StmtVisitor):
     def visit_block_stmt(self, stmt: ast.stmt.Block):
         self.execute_block(stmt.statements, Environment(self._environment))
 
+    def visit_class_stmt(self, stmt: ast.stmt.Class):
+        self._environment.define(stmt.name.lexeme, None)
+        methods: dict[str,Function] = {}
+        for method in stmt.methods:
+            function = Function(method, self._environment, method.name.lexeme == "init")
+            methods[method.name.lexeme] = function
+
+        klass = LoxClass(stmt.name.lexeme, methods)
+        self._environment.assign(stmt.name, klass)
+
     def visit_literal_expr(self, expr: ast.expr.Literal):
         return expr.value
 
@@ -85,6 +96,17 @@ class Interpreter(ast.expr.ExprVisitor, ast.stmt.StmtVisitor):
                 return left
 
         return self._evaluate(expr.right)
+
+    def visit_set_expr(self, expr: ast.expr.Set) -> object:
+        obj = self._evaluate(expr.obj)
+        if not isinstance(obj, LoxInstance):
+            raise LoxRuntimeError(expr.name, "Only instances have fields.")
+        value = self._evaluate(expr.value)
+        obj.set(expr.name, value)
+        return value
+
+    def visit_this_expr(self, expr: ast.expr.This) -> object:
+        return self._look_up_variable(expr.keyword, expr)
 
     def visit_unary_expr(self, expr: ast.expr.Unary):
         right = self._evaluate(expr.right)
@@ -153,6 +175,12 @@ class Interpreter(ast.expr.ExprVisitor, ast.stmt.StmtVisitor):
 
         return callee.call(self, arguments)
 
+    def visit_get_expr(self, expr: ast.expr.Get):
+        obj = self._evaluate(expr.obj)
+        if isinstance(obj, LoxInstance):
+            return obj.get(expr.name)
+
+        raise LoxRuntimeError(expr.name, "Only instances have properties.")
 
     def _evaluate(self, expr: ast.expr.Expr) -> object:
         return expr.accept(self)
@@ -196,7 +224,7 @@ class Interpreter(ast.expr.ExprVisitor, ast.stmt.StmtVisitor):
         self._evaluate(stmt.expression)
 
     def visit_function_stmt(self, stmt: ast.stmt.Function):
-        function = Function(stmt, self._environment)
+        function = Function(stmt, self._environment, False)
         self._environment.define(stmt.name.lexeme, function)
 
     def visit_if_stmt(self, stmt: ast.stmt.If):

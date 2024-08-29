@@ -37,6 +37,8 @@ class Parser:
             if isinstance(expr, ast.expr.Variable):
                 name = expr.name
                 return ast.expr.Assign(name, value)
+            elif isinstance(expr, ast.expr.Get):
+                return ast.expr.Set(expr.obj, expr.name, value)
 
             Lox.error(equals, "Invalid assignment target.")
 
@@ -64,6 +66,8 @@ class Parser:
 
     def _declaration(self) -> ast.stmt.Stmt:
         try:
+            if self._match(TokenType.CLASS):
+                return self._class_declaration()
             if self._match(TokenType.FUN):
                 return self._function("function")
             if self._match(TokenType.VAR):
@@ -73,6 +77,18 @@ class Parser:
             Lox.error(pe.token, pe.message)
             self._synchronize()
             return None
+
+    def _class_declaration(self) -> ast.stmt.Stmt:
+        name = self._consume(TokenType.INDENTIFIER, "Expect class name.")
+        self._consume(TokenType.LEFT_BRACE, "Expect '{' before class body.")
+
+        methods: list[ast.stmt.Function] = []
+        while not self._check(TokenType.RIGHT_BRACE) and not self._is_at_end():
+            methods.append(self._function("method"))
+
+        self._consume(TokenType.RIGHT_BRACE, "Expect '}' after class body.")
+        return ast.stmt.Class(name, methods)
+
 
     def _statement(self) -> ast.stmt.Stmt:
         if self._match(TokenType.FOR):
@@ -267,6 +283,9 @@ class Parser:
         while True:
             if self._match(TokenType.LEFT_PAREN):
                 expr = self._finish_call(expr)
+            elif self._match(TokenType.DOT):
+                name = self._consume(TokenType.INDENTIFIER, "Expect property name after '.'.")
+                expr = ast.expr.Get(expr, name)
             else:
                 break
 
@@ -282,6 +301,9 @@ class Parser:
 
         if self._match(TokenType.NUMBER, TokenType.STRING):
             return ast.expr.Literal(self._previous().literal)
+
+        if self._match(TokenType.THIS):
+            return ast.expr.This(self._previous())
 
         if self._match(TokenType.INDENTIFIER):
             return ast.expr.Variable(self._previous())

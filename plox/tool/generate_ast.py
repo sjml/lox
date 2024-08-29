@@ -53,15 +53,19 @@ def main(args: list[str]):
         "Assign   : name: Token, value: Expr",
         "Binary   : left: Expr, operator: Token, right: Expr",
         "Call     : callee: Expr, paren: Token, arguments: list[Expr]",
+        "Get      : obj: Expr, name: Token",
         "Grouping : expression: Expr",
         "Literal  : value",
         "Logical  : left: Expr, operator: Token, right: Expr",
+        "Set      : obj: Expr, name: Token, value: Expr",
+        "This     : keyword: Token",
         "Unary    : operator: Token, right: Expr",
         "Variable : name: Token"
     ])
 
     define_ast(args[0], "Stmt", [
         "Block      : statements: list[Expr]",
+        "Class      : name: Token, methods: list[Function]",
         "Expression : expression: Expr",
         "Function   : name: Token, params: list[Token], body: list[Stmt]",
         "If         : condition: Expr, then_branch: Stmt, else_branch: Stmt",
