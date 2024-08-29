@@ -6,7 +6,7 @@ from .token import Token
 from .interpreter import Interpreter
 
 FunctionType = Enum("FunctionType", ["NONE", "FUNCTION", "METHOD", "INITIALIZER"])
-ClassType = Enum("ClassType", ["NONE", "CLASS"])
+ClassType = Enum("ClassType", ["NONE", "CLASS", "SUBCLASS"])
 
 class Resolver(ast.expr.ExprVisitor, ast.stmt.StmtVisitor):
     def __init__(self, interpreter: Interpreter) -> None:
@@ -74,6 +74,17 @@ class Resolver(ast.expr.ExprVisitor, ast.stmt.StmtVisitor):
         self._declare(stmt.name)
         self._define(stmt.name)
 
+        if stmt.superclass != None and stmt.name.lexeme == stmt.superclass.name.lexeme:
+            Lox.error(stmt.superclass.name, "A class can't inherit from itself.")
+
+        if stmt.superclass != None:
+            self._current_class = ClassType.SUBCLASS
+            self.resolve(stmt.superclass)
+
+        if stmt.superclass != None:
+            self._begin_scope()
+            self._scopes[-1]["super"] = True
+
         self._begin_scope()
         self._scopes[-1]["this"] = True
 
@@ -84,6 +95,9 @@ class Resolver(ast.expr.ExprVisitor, ast.stmt.StmtVisitor):
             self._resolve_function(method, declaration)
 
         self._end_scope()
+
+        if stmt.superclass != None:
+            self._end_scope()
 
         self._current_class = enclosing_class
 
@@ -151,6 +165,14 @@ class Resolver(ast.expr.ExprVisitor, ast.stmt.StmtVisitor):
     def visit_set_expr(self, expr: ast.expr.Set):
         self.resolve(expr.value)
         self.resolve(expr.obj)
+
+    def visit_super_expr(self, expr: ast.expr.Super):
+        if self._current_class == ClassType.NONE:
+            Lox.error(expr.keyword, "Can't use 'super' outside of a class.")
+        elif self._current_class != ClassType.SUBCLASS:
+            Lox.error(expr.keyword, "Can't use 'super' in a class with no superclass.")
+
+        self._resolve_local(expr, expr.keyword)
 
     def visit_this_expr(self, expr: ast.expr.This):
         if self._current_class == ClassType.NONE:

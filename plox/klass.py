@@ -5,13 +5,17 @@ from .token import Token
 from .lox import LoxRuntimeError
 
 class LoxClass(Callable):
-    def __init__(self, name: str, methods: dict) -> None:
+    def __init__(self, name: str, superclass: LoxClass, methods: dict) -> None:
         self.name = name
         self._methods = methods
+        self.superclass = superclass
 
     def find_method(self, name: str):
         if name in self._methods:
             return self._methods[name]
+
+        if self.superclass:
+            return self.superclass.find_method(name)
 
         return None
 

@@ -129,7 +129,7 @@ class Scanner:
         text = self._src[self._start:self._current]
         tok_type = Scanner._keywords.get(text)
         if not tok_type:
-            tok_type = TokenType.INDENTIFIER
+            tok_type = TokenType.IDENTIFIER
 
         self._add_token(tok_type)
 

@@ -79,7 +79,13 @@ class Parser:
             return None
 
     def _class_declaration(self) -> ast.stmt.Stmt:
-        name = self._consume(TokenType.INDENTIFIER, "Expect class name.")
+        name = self._consume(TokenType.IDENTIFIER, "Expect class name.")
+
+        superclass = None
+        if self._match(TokenType.LESS):
+            self._consume(TokenType.IDENTIFIER, "Expect superclass name.")
+            superclass = ast.expr.Variable(self._previous())
+
         self._consume(TokenType.LEFT_BRACE, "Expect '{' before class body.")
 
         methods: list[ast.stmt.Function] = []
@@ -87,7 +93,7 @@ class Parser:
             methods.append(self._function("method"))
 
         self._consume(TokenType.RIGHT_BRACE, "Expect '}' after class body.")
-        return ast.stmt.Class(name, methods)
+        return ast.stmt.Class(name, superclass, methods)
 
 
     def _statement(self) -> ast.stmt.Stmt:
@@ -170,7 +176,7 @@ class Parser:
         return ast.stmt.Return(keyword, value)
 
     def _var_declaration(self) -> ast.stmt.Stmt:
-        name = self._consume(TokenType.INDENTIFIER, "Expect variable name.")
+        name = self._consume(TokenType.IDENTIFIER, "Expect variable name.")
         initializer = None
         if self._match(TokenType.EQUAL):
             initializer = self._expression()
@@ -190,14 +196,14 @@ class Parser:
         return ast.stmt.Expression(expr)
 
     def _function(self, kind: str) -> ast.stmt.Function:
-        name = self._consume(TokenType.INDENTIFIER, f"Expect {kind} name.")
+        name = self._consume(TokenType.IDENTIFIER, f"Expect {kind} name.")
         self._consume(TokenType.LEFT_PAREN, f"Expect '(' after {kind} name.")
         parameters: list[Token] = []
         if not self._check(TokenType.RIGHT_PAREN):
             while True:
                 if len(parameters) >= 255:
                     Lox.error(self._peek(), "Can't have more than 255 parameters.")
-                parameters.append(self._consume(TokenType.INDENTIFIER, "Expect parameter name."))
+                parameters.append(self._consume(TokenType.IDENTIFIER, "Expect parameter name."))
                 if not self._match(TokenType.COMMA):
                     break
         self._consume(TokenType.RIGHT_PAREN, "Expect ')' after parameters.")
@@ -284,7 +290,7 @@ class Parser:
             if self._match(TokenType.LEFT_PAREN):
                 expr = self._finish_call(expr)
             elif self._match(TokenType.DOT):
-                name = self._consume(TokenType.INDENTIFIER, "Expect property name after '.'.")
+                name = self._consume(TokenType.IDENTIFIER, "Expect property name after '.'.")
                 expr = ast.expr.Get(expr, name)
             else:
                 break
@@ -299,13 +305,19 @@ class Parser:
         if self._match(TokenType.NIL):
             return ast.expr.Literal(None)
 
+        if self._match(TokenType.SUPER):
+            keyword = self._previous()
+            self._consume(TokenType.DOT, "Expect '.' after 'super'.")
+            method = self._consume(TokenType.IDENTIFIER, "Expect superclass method name.")
+            return ast.expr.Super(keyword, method)
+
         if self._match(TokenType.NUMBER, TokenType.STRING):
             return ast.expr.Literal(self._previous().literal)
 
         if self._match(TokenType.THIS):
             return ast.expr.This(self._previous())
 
-        if self._match(TokenType.INDENTIFIER):
+        if self._match(TokenType.IDENTIFIER):
             return ast.expr.Variable(self._previous())
 
         if self._match(TokenType.LEFT_PAREN):

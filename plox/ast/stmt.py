@@ -4,7 +4,7 @@ from __future__ import annotations
 import abc
 
 from ..token import Token
-from .expr import Expr
+from .expr import Expr, Variable
 
 class Stmt:
     @abc.abstractmethod
@@ -57,8 +57,9 @@ class Block(Stmt):
         return visitor.visit_block_stmt(self)
 
 class Class(Stmt):
-    def __init__(self, name: Token, methods: list[Function]):
+    def __init__(self, name: Token, superclass: Variable, methods: list[Function]):
         self.name: Token = name
+        self.superclass: Variable = superclass
         self.methods: list[Function] = methods
 
     def accept(self, visitor: Stmt.Visitor):

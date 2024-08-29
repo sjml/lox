@@ -16,7 +16,7 @@ TokenType = Enum("TokenType", [
     "LESS", "LESS_EQUAL",
 
     # literals
-    "INDENTIFIER", "STRING", "NUMBER",
+    "IDENTIFIER", "STRING", "NUMBER",
 
     # keywords
     "TRUE", "FALSE",

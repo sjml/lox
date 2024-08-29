@@ -13,7 +13,7 @@ def define_type(out_file: io.TextIOWrapper, base_name: str, class_name: str, fie
     out_file.write(f"        return visitor.visit_{class_name.lower()}_{base_name.lower()}(self)\n")
     out_file.write("\n")
 
-def define_ast(output_dir: str, base_name: str, types: list[str], imports: list[str] = []):
+def define_ast(output_dir: str, base_name: str, types: list[tuple[str,list[str]]], imports: list[str] = []):
     type_datums = [[st.strip() for st in sub_type.split(":", 1)] for sub_type in types]
 
     output_path = os.path.join(output_dir, base_name.lower() + ".py")
@@ -23,8 +23,8 @@ def define_ast(output_dir: str, base_name: str, types: list[str], imports: list[
     out_file.write("from __future__ import annotations\n")
     out_file.write("import abc\n\n")
     out_file.write("from ..token import Token\n")
-    for imp in imports:
-        out_file.write(f"from .{imp.lower()} import {imp}\n")
+    for imp_file, vals in imports:
+        out_file.write(f"from .{imp_file} import {', '.join(vals)}\n")
     out_file.write("\n")
 
     out_file.write(f"class {base_name}:\n")
@@ -58,6 +58,7 @@ def main(args: list[str]):
         "Literal  : value",
         "Logical  : left: Expr, operator: Token, right: Expr",
         "Set      : obj: Expr, name: Token, value: Expr",
+        "Super    : keyword: Token, method: Token",
         "This     : keyword: Token",
         "Unary    : operator: Token, right: Expr",
         "Variable : name: Token"
@@ -65,7 +66,7 @@ def main(args: list[str]):
 
     define_ast(args[0], "Stmt", [
         "Block      : statements: list[Expr]",
-        "Class      : name: Token, methods: list[Function]",
+        "Class      : name: Token, superclass: Variable, methods: list[Function]",
         "Expression : expression: Expr",
         "Function   : name: Token, params: list[Token], body: list[Stmt]",
         "If         : condition: Expr, then_branch: Stmt, else_branch: Stmt",
@@ -73,7 +74,7 @@ def main(args: list[str]):
         "Print      : expression: Expr",
         "Var        : name: Token, initializer: Expr",
         "While      : condition: Expr, body: Stmt",
-    ], ["Expr"])
+    ], [("expr", ["Expr", "Variable"])])
 
     init_path = os.path.join(args[0], "__init__.py")
     init_file = open(init_path, "w")
