@@ -4,6 +4,7 @@ from .lox import Lox
 from .scanner import Scanner
 from .parser import Parser
 from .interpreter import Interpreter
+from .resolver import Resolver
 
 def run_file(path: str):
     raw = open(path, "r").read()
@@ -41,6 +42,12 @@ def run(source: str):
         statements = parser.parse()
     except Parser.ParseError as pe:
         Lox.error(pe.token, pe.message)
+
+    if Lox.had_error:
+        return
+
+    resolver = Resolver(Lox.interpreter)
+    resolver.resolve(statements)
 
     if Lox.had_error:
         return
