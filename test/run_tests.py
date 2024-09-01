@@ -6,7 +6,7 @@ ROOT_PATH = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
 TMP_DIR = os.path.join(ROOT_PATH, "test", "tmp")
 BOOK_REPO_PATH = os.path.join(TMP_DIR, "craftinginterpreters")
 RELATIVE_JLOX_PATH = "../../../plox.sh"
-RELATIVE_CLOX_PATH = "../../../plox.sh" # temporary until actually running a clox-clone
+RELATIVE_CLOX_PATH = "../../../zlox/zig-out/bin/zlox"
 
 JLOX_TESTS = {
      5 : "chap05_representing",
@@ -21,9 +21,6 @@ JLOX_TESTS = {
 }
 
 CLOX_TESTS = {
-    14 : "chap14_chunks",
-    15 : "chap15_virtual",
-    16 : "chap16_scanning",
     17 : "chap17_compiling",
     18 : "chap18_types",
     19 : "chap19_strings",
@@ -52,9 +49,11 @@ except:
 if chapter in JLOX_TESTS:
     tester = RELATIVE_JLOX_PATH
     tester_name = "jlox"
+    suite = JLOX_TESTS[chapter]
 elif chapter in CLOX_TESTS:
     tester = RELATIVE_CLOX_PATH
     tester_name = "clox"
+    suite = CLOX_TESTS[chapter]
 else:
     sys.stderr.write("Invalid chapter for testing!\n")
     sys.exit(1)
@@ -86,4 +85,4 @@ print("Installing dependencies...")
 result = subprocess.run(["make", "get"], stdout=open(os.devnull, 'wb'))
 
 print(f"Running {tester_name} tests for chapter {chapter}...")
-subprocess.run(["dart", "./tool/bin/test.dart", JLOX_TESTS[chapter], "--interpreter", tester])
+subprocess.run(["dart", "./tool/bin/test.dart", suite, "--interpreter", tester])
