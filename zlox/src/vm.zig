@@ -48,9 +48,20 @@ pub const VM = struct {
         return instance.stackTop.*;
     }
 
-    pub fn interpret(src: []const u8) InterpretResult {
-        compiler.compile(src);
-        return InterpretResult.INTERPRET_OK;
+    pub fn interpret(allocator: Allocator, src: []const u8) !InterpretResult {
+        var c = try Chunk.init(allocator);
+        defer c.deinit();
+
+        var comp = compiler.Compiler.init(src);
+
+        if (!comp.compile(&c)) {
+            return .INTERPRET_COMPILE_ERROR;
+        }
+
+        instance.chunk = &c;
+        instance.ip = instance.chunk.code.items.ptr;
+
+        return run();
     }
 
     // these are macros in canonical clox;
@@ -85,36 +96,36 @@ pub const VM = struct {
             }
             const instruction: OpCode = @enumFromInt(read_byte().*);
             switch (instruction) {
-                OpCode.OP_CONSTANT => {
+                OpCode.CONSTANT => {
                     const constant: *value.Value = read_constant();
                     push(constant.*);
                 },
-                OpCode.OP_ADD => {
+                OpCode.ADD => {
                     const b = pop();
                     const a = pop();
                     push(a + b);
                 },
-                OpCode.OP_SUBTRACT => {
+                OpCode.SUBTRACT => {
                     const b = pop();
                     const a = pop();
                     push(a - b);
                 },
-                OpCode.OP_MULTIPLY => {
+                OpCode.MULTIPLY => {
                     const b = pop();
                     const a = pop();
                     push(a * b);
                 },
-                OpCode.OP_DIVIDE => {
+                OpCode.DIVIDE => {
                     const b = pop();
                     const a = pop();
                     push(a / b);
                 },
-                OpCode.OP_NEGATE => {
+                OpCode.NEGATE => {
                     push(-pop());
                 },
-                OpCode.OP_RETURN => {
+                OpCode.RETURN => {
                     try value.printValue(pop());
-                    try util.printf("\n", .{});
+                    try util.printf("\r\n", .{});
                     return InterpretResult.INTERPRET_OK;
                 },
                 // else => {

@@ -13,7 +13,7 @@ pub fn repl(allocator: Allocator) !void {
     defer stdout_file.writeAll("\n") catch {};
 
     const orig = try term.enableRawMode(stdin_file);
-    defer term.disableRawMode(stdin_file, orig);
+    errdefer term.disableRawMode(stdin_file, orig);
 
     while (true) {
         const line = term.getLine(allocator, stdin_file, stdout_file, "> ") catch |err| switch (err) {
@@ -37,8 +37,7 @@ pub fn repl(allocator: Allocator) !void {
 
         _ = try stdout_file.write("\r\n");
 
-        _ = try stdout_file.write(line);
-        _ = try stdout_file.write("\r\n");
+        _ = try vm.VM.interpret(allocator, line);
     }
 }
 
@@ -68,7 +67,7 @@ pub fn runFile(allocator: Allocator, path: []u8) !vm.InterpretResult {
     };
     file_buffer[file_size] = 0;
 
-    const res = vm.VM.interpret(file_buffer);
+    const res = vm.VM.interpret(allocator, file_buffer);
 
     return res;
 }

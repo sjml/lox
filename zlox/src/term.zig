@@ -8,6 +8,7 @@ const Allocator = std.mem.Allocator;
 const KEY_CTRL_C = 3;
 const KEY_CTRL_D = 4;
 const KEY_ENTER = 13;
+const KEY_BACKSPACE = 127;
 
 pub const TermError = error{
     SIGINT,
@@ -54,6 +55,16 @@ pub fn getLine(allocator: Allocator, in: File, out: File, prompt: []const u8) ![
         }
 
         switch (input_buf[0]) {
+            KEY_BACKSPACE => {
+                if (line_pos == 0) {
+                    continue;
+                }
+                // \b [space] \b
+                const output = [_]u8{ 8, 32, 8 };
+                _ = try out.write(&output);
+                line_buf[line_pos] = 0;
+                line_pos -= 1;
+            },
             KEY_CTRL_C => {
                 return TermError.SIGINT;
             },
@@ -65,6 +76,7 @@ pub fn getLine(allocator: Allocator, in: File, out: File, prompt: []const u8) ![
                 }
             },
             KEY_ENTER => {
+                line_buf[line_pos] = 0;
                 const line = try allocator.dupe(u8, line_buf[0..line_pos]);
                 return line;
             },

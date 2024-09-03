@@ -13,7 +13,8 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     const build_options = b.addOptions();
-    build_options.addOption(bool, "debug-trace-execution", b.option(bool, "debug-trace-execution", "Print execution information to STDERR") orelse false);
+    build_options.addOption(bool, "debug-trace-execution", b.option(bool, "debug-trace-execution", "Print execution information") orelse false);
+    build_options.addOption(bool, "debug-print-code", b.option(bool, "debug-print-code", "Print code on compilation") orelse false);
 
     const exe = b.addExecutable(.{
         .name = "zlox",

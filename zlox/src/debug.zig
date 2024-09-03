@@ -24,26 +24,26 @@ pub fn disassembleInstruction(chunk: *Chunk, offset: usize) !usize {
 
     const inst: OpCode = @enumFromInt(chunk.code.items[offset]);
     switch (inst) {
-        OpCode.OP_CONSTANT => {
-            return try constantInstruction("OP_CONSTANT", chunk, offset);
+        OpCode.CONSTANT => {
+            return try constantInstruction("CONSTANT", chunk, offset);
         },
-        OpCode.OP_ADD => {
-            return try simpleInstruction("OP_ADD", offset);
+        OpCode.ADD => {
+            return try simpleInstruction("ADD", offset);
         },
-        OpCode.OP_SUBTRACT => {
-            return try simpleInstruction("OP_SUBTRACT", offset);
+        OpCode.SUBTRACT => {
+            return try simpleInstruction("SUBTRACT", offset);
         },
-        OpCode.OP_MULTIPLY => {
-            return try simpleInstruction("OP_MULTIPLY", offset);
+        OpCode.MULTIPLY => {
+            return try simpleInstruction("MULTIPLY", offset);
         },
-        OpCode.OP_DIVIDE => {
-            return try simpleInstruction("OP_DIVIDE", offset);
+        OpCode.DIVIDE => {
+            return try simpleInstruction("DIVIDE", offset);
         },
-        OpCode.OP_NEGATE => {
-            return try simpleInstruction("OP_NEGATE", offset);
+        OpCode.NEGATE => {
+            return try simpleInstruction("NEGATE", offset);
         },
-        OpCode.OP_RETURN => {
-            return try simpleInstruction("OP_RETURN", offset);
+        OpCode.RETURN => {
+            return try simpleInstruction("RETURN", offset);
         },
         // else => {
         //     @panic("Unknown opcode!");

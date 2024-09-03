@@ -54,6 +54,8 @@ elif chapter in CLOX_TESTS:
     tester = RELATIVE_CLOX_PATH
     tester_name = "clox"
     suite = CLOX_TESTS[chapter]
+    print("Building zlox...")
+    subprocess.run(["zig", "build", "--release=safe"], cwd=os.path.join(ROOT_PATH, "zlox"))
 else:
     sys.stderr.write("Invalid chapter for testing!\n")
     sys.exit(1)
@@ -81,7 +83,7 @@ else:
         sys.exit(1)
 
 os.chdir(BOOK_REPO_PATH)
-print("Installing dependencies...")
+print("Installing testing dependencies...")
 result = subprocess.run(["make", "get"], stdout=open(os.devnull, 'wb'))
 
 print(f"Running {tester_name} tests for chapter {chapter}...")
