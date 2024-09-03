@@ -27,6 +27,21 @@ pub fn disassembleInstruction(chunk: *Chunk, offset: usize) !usize {
         OpCode.OP_CONSTANT => {
             return try constantInstruction("OP_CONSTANT", chunk, offset);
         },
+        OpCode.OP_ADD => {
+            return try simpleInstruction("OP_ADD", offset);
+        },
+        OpCode.OP_SUBTRACT => {
+            return try simpleInstruction("OP_SUBTRACT", offset);
+        },
+        OpCode.OP_MULTIPLY => {
+            return try simpleInstruction("OP_MULTIPLY", offset);
+        },
+        OpCode.OP_DIVIDE => {
+            return try simpleInstruction("OP_DIVIDE", offset);
+        },
+        OpCode.OP_NEGATE => {
+            return try simpleInstruction("OP_NEGATE", offset);
+        },
         OpCode.OP_RETURN => {
             return try simpleInstruction("OP_RETURN", offset);
         },

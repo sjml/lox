@@ -9,6 +9,11 @@ const ValueArray = value.ValueArray;
 
 pub const OpCode = enum(u8) {
     OP_CONSTANT,
+    OP_ADD,
+    OP_SUBTRACT,
+    OP_MULTIPLY,
+    OP_DIVIDE,
+    OP_NEGATE,
     OP_RETURN,
 };
 
@@ -28,7 +33,7 @@ pub const Chunk = struct {
         };
     }
 
-    pub fn deinit(self: *Chunk) !void {
+    pub fn deinit(self: *Chunk) void {
         self.code.deinit();
         self.lines.deinit();
         self.constants.deinit();
@@ -43,12 +48,6 @@ pub const Chunk = struct {
     pub fn addConstant(self: *Chunk, val: Value) usize {
         self.constants.add(val);
         return self.constants.count - 1;
-    }
-
-    pub fn free(self: *Chunk) !void {
-        try self.code.free();
-        try self.lines.free();
-        try self.constants.free();
     }
 };
 
