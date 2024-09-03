@@ -1,6 +1,15 @@
+# {p|z}lox
+
+I'm making my way through [_Crafting Interpreters_](https://craftinginterpreters.com/), using languages not in the book. This is helpful in a few ways! 
+
+* Make sure I actually understand the concepts instead of just copying code, since I had to translate (from Java -> Python in Part II and from C -> Zig in Part III)
+* In the case of Zig, actually build something useful in a language I've been meaning to learn
+  * This might have been a mistake! As explaned below in the [zlox section](#zlox)
+
+
 ## plox
 
-A [Python](https://www.python.org/) implementation of Part II of [_Crafting Interpreters_](https://craftinginterpreters.com/).
+A [Python](https://www.python.org/) implementation of Part II.
 
 There are many like it but this one is mine. 
 

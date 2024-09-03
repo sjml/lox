@@ -2,8 +2,9 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 
 const config = @import("config");
-const debug = @import("./debug.zig");
 const util = @import("./util.zig");
+const debug = @import("./debug.zig");
+const compiler = @import("./compiler.zig");
 const value = @import("./value.zig");
 const Value = value.Value;
 const List = @import("./list.zig").List;
@@ -47,11 +48,9 @@ pub const VM = struct {
         return instance.stackTop.*;
     }
 
-    pub fn interpret(c: *Chunk) InterpretResult {
-        instance.chunk = c;
-        instance.ip = instance.chunk.code.items.ptr;
-        const res = run() catch @panic("Oh noooo");
-        return res;
+    pub fn interpret(src: []const u8) InterpretResult {
+        compiler.compile(src);
+        return InterpretResult.INTERPRET_OK;
     }
 
     // these are macros in canonical clox;

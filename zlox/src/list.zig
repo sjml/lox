@@ -106,22 +106,22 @@ test "freeing list" {
     bl.deinit();
 }
 
-test "playing" {
-    const allocator = std.testing.allocator;
-    const datums = try allocator.alloc(u8, 4);
-    var ptr: [*]u8 = datums.ptr;
+// test "playing" {
+//     const allocator = std.testing.allocator;
+//     const datums = try allocator.alloc(u8, 4);
+//     var ptr: [*]u8 = datums.ptr;
 
-    ptr[0] = 1;
-    ptr += 1;
-    ptr[0] = 2;
-    ptr += 1;
-    ptr[0] = 3;
-    // const testVal = &ptr[0];
-    // std.debug.print("addr: {d}; val: {d}\n", .{ testVal, testVal.* });
-    ptr += 1;
-    ptr[0] = 4;
-    allocator.free(datums);
-}
+//     ptr[0] = 1;
+//     ptr += 1;
+//     ptr[0] = 2;
+//     ptr += 1;
+//     ptr[0] = 3;
+//     // const testVal = &ptr[0];
+//     // std.debug.print("addr: {d}; val: {d}\n", .{ testVal, testVal.* });
+//     ptr += 1;
+//     ptr[0] = 4;
+//     allocator.free(datums);
+// }
 
 // test "pointer arithmetic" {
 //     const allocator = std.testing.allocator;
