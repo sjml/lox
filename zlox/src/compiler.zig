@@ -52,31 +52,31 @@ const rules: []const ParseRule = &.{
     .{ .prefix = null, .infix = null, .precedence = .NONE }, // SEMICOLON
     .{ .prefix = null, .infix = Compiler.binary, .precedence = .FACTOR }, // SLASH
     .{ .prefix = null, .infix = Compiler.binary, .precedence = .FACTOR }, // STAR
-    .{ .prefix = null, .infix = null, .precedence = .NONE }, // BANG
-    .{ .prefix = null, .infix = null, .precedence = .NONE }, // BANG_EQUAL
+    .{ .prefix = Compiler.unary, .infix = null, .precedence = .NONE }, // BANG
+    .{ .prefix = null, .infix = Compiler.binary, .precedence = .EQUALITY }, // BANG_EQUAL
     .{ .prefix = null, .infix = null, .precedence = .NONE }, // EQUAL
-    .{ .prefix = null, .infix = null, .precedence = .NONE }, // EQUAL_EQUAL
-    .{ .prefix = null, .infix = null, .precedence = .NONE }, // GREATER
-    .{ .prefix = null, .infix = null, .precedence = .NONE }, // GREATER_EQUAL
-    .{ .prefix = null, .infix = null, .precedence = .NONE }, // LESS
-    .{ .prefix = null, .infix = null, .precedence = .NONE }, // LESS_EQUAL
+    .{ .prefix = null, .infix = Compiler.binary, .precedence = .EQUALITY }, // EQUAL_EQUAL
+    .{ .prefix = null, .infix = Compiler.binary, .precedence = .COMPARISON }, // GREATER
+    .{ .prefix = null, .infix = Compiler.binary, .precedence = .COMPARISON }, // GREATER_EQUAL
+    .{ .prefix = null, .infix = Compiler.binary, .precedence = .COMPARISON }, // LESS
+    .{ .prefix = null, .infix = Compiler.binary, .precedence = .COMPARISON }, // LESS_EQUAL
     .{ .prefix = null, .infix = null, .precedence = .NONE }, // IDENTIFIER
     .{ .prefix = null, .infix = null, .precedence = .NONE }, // STRING
     .{ .prefix = Compiler.number, .infix = null, .precedence = .NONE }, // NUMBER
     .{ .prefix = null, .infix = null, .precedence = .NONE }, // AND
     .{ .prefix = null, .infix = null, .precedence = .NONE }, // CLASS
     .{ .prefix = null, .infix = null, .precedence = .NONE }, // ELSE
-    .{ .prefix = null, .infix = null, .precedence = .NONE }, // FALSE
+    .{ .prefix = Compiler.literal, .infix = null, .precedence = .NONE }, // FALSE
     .{ .prefix = null, .infix = null, .precedence = .NONE }, // FOR
     .{ .prefix = null, .infix = null, .precedence = .NONE }, // FUN
     .{ .prefix = null, .infix = null, .precedence = .NONE }, // IF
-    .{ .prefix = null, .infix = null, .precedence = .NONE }, // NIL
+    .{ .prefix = Compiler.literal, .infix = null, .precedence = .NONE }, // NIL
     .{ .prefix = null, .infix = null, .precedence = .NONE }, // OR
     .{ .prefix = null, .infix = null, .precedence = .NONE }, // PRINT
     .{ .prefix = null, .infix = null, .precedence = .NONE }, // RETURN
     .{ .prefix = null, .infix = null, .precedence = .NONE }, // SUPER
     .{ .prefix = null, .infix = null, .precedence = .NONE }, // THIS
-    .{ .prefix = null, .infix = null, .precedence = .NONE }, // TRUE
+    .{ .prefix = Compiler.literal, .infix = null, .precedence = .NONE }, // TRUE
     .{ .prefix = null, .infix = null, .precedence = .NONE }, // VAR
     .{ .prefix = null, .infix = null, .precedence = .NONE }, // WHILE
     .{ .prefix = null, .infix = null, .precedence = .NONE }, // ERROR
@@ -159,14 +159,15 @@ pub const Compiler = struct {
     }
 
     fn number(self: *Compiler) void {
-        const v: Value = std.fmt.parseFloat(f64, self.parser.previous.lexeme) catch unreachable;
-        self.emitConstant(v);
+        const v: f64 = std.fmt.parseFloat(f64, self.parser.previous.lexeme) catch unreachable;
+        self.emitConstant(Value.NumberValue(v));
     }
 
     fn unary(self: *Compiler) void {
         const op_type = self.parser.previous.toktype;
         self.parsePrecedence(.UNARY);
         switch (op_type) {
+            .BANG => self.emitByte(@intFromEnum(OpCode.NOT)),
             .MINUS => self.emitByte(@intFromEnum(OpCode.NEGATE)),
             else => return,
         }
@@ -179,10 +180,25 @@ pub const Compiler = struct {
         self.parsePrecedence(@enumFromInt(next_prec));
 
         switch (op_type) {
+            .BANG_EQUAL => self.emitBytes(@intFromEnum(OpCode.EQUAL), @intFromEnum(OpCode.NOT)),
+            .EQUAL_EQUAL => self.emitByte(@intFromEnum(OpCode.EQUAL)),
+            .GREATER => self.emitByte(@intFromEnum(OpCode.GREATER)),
+            .GREATER_EQUAL => self.emitBytes(@intFromEnum(OpCode.LESS), @intFromEnum(OpCode.NOT)),
+            .LESS => self.emitByte(@intFromEnum(OpCode.LESS)),
+            .LESS_EQUAL => self.emitBytes(@intFromEnum(OpCode.GREATER), @intFromEnum(OpCode.NOT)),
             .PLUS => self.emitByte(@intFromEnum(OpCode.ADD)),
             .MINUS => self.emitByte(@intFromEnum(OpCode.SUBTRACT)),
             .STAR => self.emitByte(@intFromEnum(OpCode.MULTIPLY)),
             .SLASH => self.emitByte(@intFromEnum(OpCode.DIVIDE)),
+            else => unreachable,
+        }
+    }
+
+    fn literal(self: *Compiler) void {
+        switch (self.parser.previous.toktype) {
+            .FALSE => self.emitByte(@intFromEnum(OpCode.FALSE)),
+            .NIL => self.emitByte(@intFromEnum(OpCode.NIL)),
+            .TRUE => self.emitByte(@intFromEnum(OpCode.TRUE)),
             else => unreachable,
         }
     }

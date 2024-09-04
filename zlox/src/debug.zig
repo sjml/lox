@@ -24,27 +24,20 @@ pub fn disassembleInstruction(chunk: *Chunk, offset: usize) !usize {
 
     const inst: OpCode = @enumFromInt(chunk.code.items[offset]);
     switch (inst) {
-        OpCode.CONSTANT => {
-            return try constantInstruction("CONSTANT", chunk, offset);
-        },
-        OpCode.ADD => {
-            return try simpleInstruction("ADD", offset);
-        },
-        OpCode.SUBTRACT => {
-            return try simpleInstruction("SUBTRACT", offset);
-        },
-        OpCode.MULTIPLY => {
-            return try simpleInstruction("MULTIPLY", offset);
-        },
-        OpCode.DIVIDE => {
-            return try simpleInstruction("DIVIDE", offset);
-        },
-        OpCode.NEGATE => {
-            return try simpleInstruction("NEGATE", offset);
-        },
-        OpCode.RETURN => {
-            return try simpleInstruction("RETURN", offset);
-        },
+        OpCode.CONSTANT => return try constantInstruction("CONSTANT", chunk, offset),
+        OpCode.NIL => return try simpleInstruction("NIL", offset),
+        OpCode.TRUE => return try simpleInstruction("TRUE", offset),
+        OpCode.FALSE => return try simpleInstruction("FALSE", offset),
+        OpCode.EQUAL => return try simpleInstruction("EQUAL", offset),
+        OpCode.GREATER => return try simpleInstruction("GREATER", offset),
+        OpCode.LESS => return try simpleInstruction("LESS", offset),
+        OpCode.ADD => return try simpleInstruction("ADD", offset),
+        OpCode.SUBTRACT => return try simpleInstruction("SUBTRACT", offset),
+        OpCode.MULTIPLY => return try simpleInstruction("MULTIPLY", offset),
+        OpCode.DIVIDE => return try simpleInstruction("DIVIDE", offset),
+        OpCode.NOT => return try simpleInstruction("NOT", offset),
+        OpCode.NEGATE => return try simpleInstruction("NEGATE", offset),
+        OpCode.RETURN => return try simpleInstruction("RETURN", offset),
         // else => {
         //     @panic("Unknown opcode!");
         // },

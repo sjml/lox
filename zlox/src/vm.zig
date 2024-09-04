@@ -7,6 +7,7 @@ const debug = @import("./debug.zig");
 const compiler = @import("./compiler.zig");
 const value = @import("./value.zig");
 const Value = value.Value;
+const ValueType = value.ValueType;
 const List = @import("./list.zig").List;
 const chunk = @import("./chunk.zig");
 const Chunk = chunk.Chunk;
@@ -18,6 +19,15 @@ pub const InterpretResult = enum(u8) {
     INTERPRET_OK,
     INTERPRET_COMPILE_ERROR,
     INTERPRET_RUNTIME_ERROR,
+};
+
+const ArithmeticOperator = enum(u8) {
+    ADD,
+    SUBTRACT,
+    MULTIPLY,
+    DIVIDE,
+    GREATER,
+    LESS,
 };
 
 pub const VM = struct {
@@ -38,6 +48,16 @@ pub const VM = struct {
         instance.stackTop = &instance.stack[0];
     }
 
+    pub fn runtimeError(comptime format: []const u8, args: anytype) void {
+        util.printf(format, args) catch @panic("Error with printf");
+        util.printf("\n", .{}) catch @panic("Error with printf");
+
+        const inst_idx: usize = @intFromPtr(instance.ip) - @intFromPtr(instance.chunk.code.items.ptr) - 1;
+        const line = instance.chunk.lines.items[inst_idx];
+        util.printf("[line {d}] in script\n", .{line}) catch @panic("Error with printf");
+        resetStack();
+    }
+
     pub fn push(val: Value) void {
         instance.stackTop.* = val;
         instance.stackTop = @ptrFromInt(@intFromPtr(instance.stackTop) + @sizeOf(Value));
@@ -46,6 +66,15 @@ pub const VM = struct {
     pub fn pop() Value {
         instance.stackTop = @ptrFromInt(@intFromPtr(instance.stackTop) - @sizeOf(Value));
         return instance.stackTop.*;
+    }
+
+    pub fn peek(distance: u8) Value {
+        const target: *Value = @ptrFromInt(@intFromPtr(instance.stackTop) - (@sizeOf(Value) * (1 + distance)));
+        return target.*;
+    }
+
+    pub fn is_falsey(val: Value) bool {
+        return val.isNil() or (val.isA(.BOOLEAN) and !val.BOOLEAN);
     }
 
     pub fn interpret(allocator: Allocator, src: []const u8) !InterpretResult {
@@ -75,6 +104,23 @@ pub const VM = struct {
     inline fn read_constant() *Value {
         return &instance.chunk.constants.items[@as(usize, read_byte().*)];
     }
+    inline fn binary_op(vt: ValueType, op: ArithmeticOperator) bool {
+        if (!peek(0).isA(vt) or !peek(1).isA(vt)) {
+            runtimeError("Operands must be numbers.", .{});
+            return false;
+        }
+        const b = pop();
+        const a = pop();
+        switch (op) {
+            .ADD => push(Value.NumberValue(a.NUMBER + b.NUMBER)),
+            .SUBTRACT => push(Value.NumberValue(a.NUMBER - b.NUMBER)),
+            .MULTIPLY => push(Value.NumberValue(a.NUMBER * b.NUMBER)),
+            .DIVIDE => push(Value.NumberValue(a.NUMBER / b.NUMBER)),
+            .GREATER => push(Value.BooleanValue(a.NUMBER > b.NUMBER)),
+            .LESS => push(Value.BooleanValue(a.NUMBER < b.NUMBER)),
+        }
+        return true;
+    }
 
     pub fn run() !InterpretResult {
         while (true) {
@@ -96,34 +142,33 @@ pub const VM = struct {
             }
             const instruction: OpCode = @enumFromInt(read_byte().*);
             switch (instruction) {
-                OpCode.CONSTANT => {
+                .CONSTANT => {
                     const constant: *value.Value = read_constant();
                     push(constant.*);
                 },
-                OpCode.ADD => {
+                .NIL => push(Value.NilValue()),
+                .TRUE => push(Value.BooleanValue(true)),
+                .FALSE => push(Value.BooleanValue(false)),
+                .EQUAL => {
                     const b = pop();
                     const a = pop();
-                    push(a + b);
+                    push(Value.BooleanValue(a.equals(b)));
                 },
-                OpCode.SUBTRACT => {
-                    const b = pop();
-                    const a = pop();
-                    push(a - b);
+                .GREATER => if (!binary_op(.NUMBER, .GREATER)) return InterpretResult.INTERPRET_RUNTIME_ERROR,
+                .LESS => if (!binary_op(.NUMBER, .LESS)) return InterpretResult.INTERPRET_RUNTIME_ERROR,
+                .ADD => if (!binary_op(.NUMBER, .ADD)) return InterpretResult.INTERPRET_RUNTIME_ERROR,
+                .SUBTRACT => if (!binary_op(.NUMBER, .SUBTRACT)) return InterpretResult.INTERPRET_RUNTIME_ERROR,
+                .MULTIPLY => if (!binary_op(.NUMBER, .MULTIPLY)) return InterpretResult.INTERPRET_RUNTIME_ERROR,
+                .DIVIDE => if (!binary_op(.NUMBER, .DIVIDE)) return InterpretResult.INTERPRET_RUNTIME_ERROR,
+                .NOT => push(Value.BooleanValue(is_falsey(pop()))),
+                .NEGATE => {
+                    if (!peek(0).isA(.NUMBER)) {
+                        runtimeError("Operand must be a number.", .{});
+                        return InterpretResult.INTERPRET_RUNTIME_ERROR;
+                    }
+                    push(Value.NumberValue(-(pop().NUMBER)));
                 },
-                OpCode.MULTIPLY => {
-                    const b = pop();
-                    const a = pop();
-                    push(a * b);
-                },
-                OpCode.DIVIDE => {
-                    const b = pop();
-                    const a = pop();
-                    push(a / b);
-                },
-                OpCode.NEGATE => {
-                    push(-pop());
-                },
-                OpCode.RETURN => {
+                .RETURN => {
                     try value.printValue(pop());
                     try util.printf("\r\n", .{});
                     return InterpretResult.INTERPRET_OK;

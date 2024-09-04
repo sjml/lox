@@ -87,4 +87,6 @@ print("Installing testing dependencies...")
 result = subprocess.run(["make", "get"], stdout=open(os.devnull, 'wb'))
 
 print(f"Running {tester_name} tests for chapter {chapter}...")
-subprocess.run(["dart", "./tool/bin/test.dart", suite, "--interpreter", tester])
+res = subprocess.run(["dart", "./tool/bin/test.dart", suite, "--interpreter", tester])
+if (res.returncode != 0):
+    sys.exit(res.returncode)
