@@ -2,9 +2,10 @@
 
 I'm making my way through [_Crafting Interpreters_](https://craftinginterpreters.com/), using languages not in the book. This is helpful in a few ways! 
 
-* Make sure I actually understand the concepts instead of just copying code, since I had to translate (from Java -> Python in Part II and from C -> Zig in Part III)
+* Make sure I actually understand the concepts instead of just copying code, since I had to translate (from Java -> Python in Part II and from C -> Zig/Rust in Part III)
 * In the case of Zig, actually build something useful in a language I've been meaning to learn
   * This might have been a mistake! As explaned below in the [zlox section](#zlox)
+* In the case of Rust, get more practice in a useful language! 
 
 
 ## plox
@@ -14,6 +15,13 @@ A [Python](https://www.python.org/) implementation of Part II.
 There are many like it but this one is mine. 
 
 (Made and tested with Python 3.12.5.)
+
+
+## rlox
+
+A Rust implementation of Part III. I initially tried with Zig (see [zlox](#zlox)) but eventually came back to Rust, which I know a know a bit better from re-implementing [my paper-writing tool in it](https://github.com/sjml/paper). 
+
+(Made and tested with Rust 1.81.0.)
 
 
 ## zlox
@@ -28,7 +36,7 @@ Midway through chapter 19 I started running into some issues with using a still-
 
 
 ## testing
-`plox` at least passes the _Crafting Interpreters_ test suite. (`zlox` is still in progress.) You need Dart 2 (not Dart 3, alas) installed to run it though. 
+`plox`, at least, passes the _Crafting Interpreters_ test suite. (`rlox` is still in progress.) You need Dart 2 (not Dart 3, alas) installed to run it though. 
 
 There are other ways of Dart-ing but this works:
 
