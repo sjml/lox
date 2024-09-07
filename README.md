@@ -13,12 +13,18 @@ A [Python](https://www.python.org/) implementation of Part II.
 
 There are many like it but this one is mine. 
 
+(Made and tested with Python 3.12.5.)
+
 
 ## zlox
 
-A [Zig](https://ziglang.org/) implementation of Part III. I am learning Zig as I write this, which means it is some **gnarly** Zig code. I intentionally don't use some useful things from Zig (like ArrayLists) because I want to implement myself. Alas, the result is kind of "writing C in Zig" and I spend a lot of time fighting the compiler. (And since Zig is a very young language, the compiler's error messages are not always helpful.)
+An abandoned [Zig](https://ziglang.org/) implementation of Part III. I was learning Zig as I wrote this, which means it is some **gnarly** Zig code. I intentionally didn't use some useful things from Zig (like ArrayLists) because I wanted to implement myself. Alas, the result is kind of "writing C in Zig" and I spent a lot of time fighting the compiler. (And since Zig is a very young language, the compiler's error messages are not always helpful.)
 
-Anyway, I am learning a lot both about bytecode machines AND Zig, so hey, mission accomplished? Or something?
+Anyway, I learned a lot both about bytecode machines AND Zig, so hey, mission accomplished? Or something?
+
+(Made and tested with Zig 0.13.0.)
+
+Midway through chapter 19 I started running into some issues with using a still-maturing language like Zig. Things change fast and documentation was not always easy to find. Eventually I ran into a problem where the compiler itself was panicking and having trouble printing its own error messages; I unfortunately lack the energy to track down compiler issues in a language I am still learning myself, so leaving this partially completed. I may return to this someday after Zig has had more time to bake. 
 
 
 ## testing

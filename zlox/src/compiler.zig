@@ -1,4 +1,5 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 
 const config = @import("config");
 const util = @import("./util.zig");
@@ -11,6 +12,9 @@ const chunk = @import("./chunk.zig");
 const Chunk = chunk.Chunk;
 const OpCode = chunk.OpCode;
 const Value = @import("./value.zig").Value;
+const object = @import("./object.zig");
+const Object = object.Object;
+const ObjectType = object.ObjectType;
 
 const Parser = struct {
     current: Token = undefined,
@@ -61,6 +65,7 @@ const rules: []const ParseRule = &.{
     .{ .prefix = null, .infix = Compiler.binary, .precedence = .COMPARISON }, // LESS
     .{ .prefix = null, .infix = Compiler.binary, .precedence = .COMPARISON }, // LESS_EQUAL
     .{ .prefix = null, .infix = null, .precedence = .NONE }, // IDENTIFIER
+    //  .{ .prefix = Compiler.string, .infix = null, .precedence = .NONE }, // STRING
     .{ .prefix = null, .infix = null, .precedence = .NONE }, // STRING
     .{ .prefix = Compiler.number, .infix = null, .precedence = .NONE }, // NUMBER
     .{ .prefix = null, .infix = null, .precedence = .NONE }, // AND
@@ -86,17 +91,20 @@ const rules: []const ParseRule = &.{
 pub const Compiler = struct {
     parser: Parser,
     sc: Scanner,
+    allocator: Allocator,
     compilingChunk: *Chunk,
 
     pub fn init(src: []const u8) Compiler {
         return Compiler{
             .sc = Scanner.init(src),
             .parser = Parser{ .hadError = false, .panicMode = false },
+            .allocator = undefined,
             .compilingChunk = undefined,
         };
     }
 
-    pub fn compile(self: *Compiler, ch: *Chunk) bool {
+    pub fn compile(self: *Compiler, allocator: Allocator, ch: *Chunk) bool {
+        self.allocator = allocator;
         self.compilingChunk = ch;
         self.advance();
         self.expression();
@@ -162,6 +170,12 @@ pub const Compiler = struct {
         const v: f64 = std.fmt.parseFloat(f64, self.parser.previous.lexeme) catch unreachable;
         self.emitConstant(Value.NumberValue(v));
     }
+
+    // fn string(self: *Compiler) void {
+    //     const range = self.parser.previous.lexeme.ptr[1 .. self.parser.previous.lexeme.len - 2];
+    //     const str = Object.String.init(self.allocator, range);
+    //     self.emitConstant(Value.ObjectValue(&str.obj));
+    // }
 
     fn unary(self: *Compiler) void {
         const op_type = self.parser.previous.toktype;

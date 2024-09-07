@@ -52,7 +52,7 @@ fn simpleInstruction(name: []const u8, offset: usize) !usize {
 fn constantInstruction(name: []const u8, chunk: *Chunk, offset: usize) !usize {
     const constantIdx = chunk.code.items[offset + 1];
     try util.printf("{s: <16} {d:4} '", .{ name, constantIdx });
-    try value.printValue(chunk.constants.items[constantIdx]);
+    try value.print_value(chunk.constants.items[constantIdx]);
     try util.printf("'\n", .{});
     return offset + 2;
 }
