@@ -1,18 +1,18 @@
 use crate::value::Value;
 
-#[cfg(feature = "debug_trace_execution")]
+#[cfg(any(feature = "debug_trace_execution", feature = "debug_print_code"))]
 use crate::{Chunk, OpCode};
 
-// #[cfg(feature = "debug_trace_execution")]
-// pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
-//     println!("== {} ==", name);
-//     let mut offset = 0;
-//     while offset < chunk.count {
-//         offset = disassemble_instruction(chunk, offset);
-//     }
-// }
+#[cfg(any(feature = "debug_trace_execution", feature = "debug_print_code"))]
+pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
+    println!("== {} ==", name);
+    let mut offset = 0;
+    while offset < chunk.count {
+        offset = disassemble_instruction(chunk, offset);
+    }
+}
 
-#[cfg(feature = "debug_trace_execution")]
+#[cfg(any(feature = "debug_trace_execution", feature = "debug_print_code"))]
 pub fn disassemble_instruction(chunk: &Chunk, offset: usize) -> usize {
     print!("{:04} ", offset);
     if offset > 0 && chunk.line_numbers[offset] == chunk.line_numbers[offset - 1] {
@@ -39,13 +39,13 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize) -> usize {
     }
 }
 
-#[cfg(feature = "debug_trace_execution")]
+#[cfg(any(feature = "debug_trace_execution", feature = "debug_print_code"))]
 fn simple_instruction(name: &str, offset: usize) -> usize {
     println!("{}", name);
     offset + 1
 }
 
-#[cfg(feature = "debug_trace_execution")]
+#[cfg(any(feature = "debug_trace_execution", feature = "debug_print_code"))]
 fn constant_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
     let constant_idx = chunk.code[offset + 1];
     print!("{:<16} {:4} '", name, constant_idx);

@@ -1,6 +1,7 @@
 mod chunk;
 mod compiler;
 mod debug;
+mod precedence;
 mod scanner;
 mod util;
 mod value;
@@ -63,7 +64,7 @@ fn run_file(vm: &mut VM, fpath: &str) {
     };
     match vm.interpret(&src) {
         InterpretResult::CompileError => std::process::exit(65),
-        InterpretResult::RuntimeError => std::process::exit(70),
+        // InterpretResult::RuntimeError => std::process::exit(70),
         InterpretResult::Success => {}
     }
 }

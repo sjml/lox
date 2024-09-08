@@ -30,9 +30,9 @@ impl ValueArray {
         self.count += 1;
     }
 
-    pub fn free(&mut self) {
-        self.capacity = 0;
-        self.count = 0;
-        self.items = Box::new([]);
-    }
+    // pub fn free(&mut self) {
+    //     self.capacity = 0;
+    //     self.count = 0;
+    //     self.items = Box::new([]);
+    // }
 }

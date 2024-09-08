@@ -79,11 +79,11 @@ impl Chunk {
         self.constants.count - 1
     }
 
-    pub fn free(&mut self) {
-        self.capacity = 0;
-        self.count = 0;
-        self.code = Box::new([]);
-        self.line_numbers = Box::new([]);
-        self.constants.free();
-    }
+    // pub fn free(&mut self) {
+    //     self.capacity = 0;
+    //     self.count = 0;
+    //     self.code = Box::new([]);
+    //     self.line_numbers = Box::new([]);
+    //     self.constants.free();
+    // }
 }

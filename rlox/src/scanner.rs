@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum TokenType {
     // single-character
     LeftParen,
@@ -50,10 +50,10 @@ pub enum TokenType {
     EndOfFile,
 }
 
-pub struct Token<'a> {
+pub struct Token {
     pub tok_type: TokenType,
     pub line: u16,
-    pub lexeme: &'a str,
+    pub lexeme: String,
 }
 
 pub struct Scanner<'a> {
@@ -71,6 +71,13 @@ impl<'a> Scanner<'a> {
             current_idx: 0,
             line: 1,
         }
+    }
+
+    pub fn set_source(&mut self, src: &'a str) {
+        self.src = src;
+        self.start_idx = 0;
+        self.current_idx = 0;
+        self.line = 1;
     }
 
     pub fn scan_token(&mut self) -> Token {
@@ -92,24 +99,24 @@ impl<'a> Scanner<'a> {
         }
 
         match c {
-            '(' => return self.make_token(TokenType::LeftParen),
-            ')' => return self.make_token(TokenType::RightParen),
-            '{' => return self.make_token(TokenType::LeftBrace),
-            '}' => return self.make_token(TokenType::RightBrace),
-            ';' => return self.make_token(TokenType::Semicolon),
-            ',' => return self.make_token(TokenType::Comma),
-            '.' => return self.make_token(TokenType::Dot),
-            '-' => return self.make_token(TokenType::Minus),
-            '+' => return self.make_token(TokenType::Plus),
-            '/' => return self.make_token(TokenType::Slash),
-            '*' => return self.make_token(TokenType::Star),
+            '(' => self.make_token(TokenType::LeftParen),
+            ')' => self.make_token(TokenType::RightParen),
+            '{' => self.make_token(TokenType::LeftBrace),
+            '}' => self.make_token(TokenType::RightBrace),
+            ';' => self.make_token(TokenType::Semicolon),
+            ',' => self.make_token(TokenType::Comma),
+            '.' => self.make_token(TokenType::Dot),
+            '-' => self.make_token(TokenType::Minus),
+            '+' => self.make_token(TokenType::Plus),
+            '/' => self.make_token(TokenType::Slash),
+            '*' => self.make_token(TokenType::Star),
             '!' => {
                 let tok_type = if self.mmatch('=') {
                     TokenType::BangEqual
                 } else {
                     TokenType::Bang
                 };
-                return self.make_token(tok_type);
+                self.make_token(tok_type)
             }
             '=' => {
                 let tok_type = if self.mmatch('=') {
@@ -117,7 +124,7 @@ impl<'a> Scanner<'a> {
                 } else {
                     TokenType::Equal
                 };
-                return self.make_token(tok_type);
+                self.make_token(tok_type)
             }
             '<' => {
                 let tok_type = if self.mmatch('=') {
@@ -125,7 +132,7 @@ impl<'a> Scanner<'a> {
                 } else {
                     TokenType::Less
                 };
-                return self.make_token(tok_type);
+                self.make_token(tok_type)
             }
             '>' => {
                 let tok_type = if self.mmatch('=') {
@@ -133,10 +140,10 @@ impl<'a> Scanner<'a> {
                 } else {
                     TokenType::Greater
                 };
-                return self.make_token(tok_type);
+                self.make_token(tok_type)
             }
-            '"' => return self.string(),
-            _ => return self.error_token("Unexpected character."),
+            '"' => self.string(),
+            _ => self.error_token("Unexpected character."),
         }
     }
 
@@ -165,15 +172,15 @@ impl<'a> Scanner<'a> {
         Token {
             tok_type,
             line: self.line,
-            lexeme: &self.src[self.start_idx..self.current_idx],
+            lexeme: self.src[self.start_idx..self.current_idx].to_string(),
         }
     }
 
-    fn error_token<'b>(&self, msg: &'b str) -> Token<'b> {
+    fn error_token(&self, msg: &str) -> Token {
         Token {
             tok_type: TokenType::Error,
             line: self.line,
-            lexeme: msg,
+            lexeme: msg.to_string(),
         }
     }
 
@@ -212,7 +219,7 @@ impl<'a> Scanner<'a> {
         {
             self.advance();
         }
-        return self.make_token(self.identifier_type());
+        self.make_token(self.identifier_type())
     }
 
     fn identifier_type(&self) -> TokenType {
@@ -267,17 +274,17 @@ impl<'a> Scanner<'a> {
     }
 
     fn number(&mut self) -> Token {
-        while self.peek().is_ascii_digit() {
+        while !self.is_at_end() && self.peek().is_ascii_digit() {
             self.advance();
         }
 
-        if self.peek() == '.' && self.peek_next().is_ascii_digit() {
+        if !self.is_at_end() && self.peek() == '.' && self.peek_next().is_ascii_digit() {
             self.advance();
-            while self.peek().is_ascii_digit() {
+            while !self.is_at_end() && self.peek().is_ascii_digit() {
                 self.advance();
             }
         }
-        return self.make_token(TokenType::Number);
+        self.make_token(TokenType::Number)
     }
 
     fn string(&mut self) -> Token {
@@ -293,7 +300,7 @@ impl<'a> Scanner<'a> {
         }
 
         self.advance();
-        return self.make_token(TokenType::String);
+        self.make_token(TokenType::String)
     }
 
     fn peek(&self) -> char {

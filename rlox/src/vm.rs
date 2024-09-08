@@ -8,7 +8,7 @@ const STACK_MAX: usize = 256;
 pub enum InterpretResult {
     Success,
     CompileError,
-    RuntimeError,
+    // RuntimeError,
 }
 
 enum ArithmeticOperator {
@@ -18,14 +18,14 @@ enum ArithmeticOperator {
     Divide,
 }
 
-pub struct VM<'a> {
-    chunk: Option<&'a Chunk>,
+pub struct VM {
+    chunk: Option<Chunk>,
     ip_idx: usize,
     stack: [Value; STACK_MAX],
     stack_top_idx: usize,
 }
 
-impl<'a> VM<'a> {
+impl VM {
     pub fn new() -> Self {
         Self {
             chunk: None,
@@ -35,21 +35,27 @@ impl<'a> VM<'a> {
         }
     }
 
-    fn set_chunk(&mut self, new_chunk: &'a Chunk) {
+    fn set_chunk(&mut self, new_chunk: Chunk) {
         self.chunk = Some(new_chunk);
         self.ip_idx = 0;
     }
 
-    pub fn reset_stack(&mut self) {
-        self.stack_top_idx = 0;
-    }
+    // pub fn reset_stack(&mut self) {
+    //     self.stack_top_idx = 0;
+    // }
 
     pub fn free(&mut self) {}
 
     pub fn interpret(&mut self, src: &str) -> InterpretResult {
-        let comp = Compiler::new();
-        comp.compile(src);
-        InterpretResult::Success
+        let mut c = Chunk::new();
+
+        let mut comp = Compiler::new();
+        if !comp.compile(src, &mut c) {
+            return InterpretResult::CompileError;
+        }
+        self.set_chunk(c);
+
+        self.run()
     }
 
     pub fn push(&mut self, val: Value) {
@@ -64,12 +70,16 @@ impl<'a> VM<'a> {
 
     fn read_byte(&mut self) -> u8 {
         self.ip_idx += 1;
-        self.chunk.expect("No chunk given to VM!").code[self.ip_idx - 1]
+        self.chunk.as_ref().expect("No chunk given to VM!").code[self.ip_idx - 1]
     }
 
     fn read_constant(&mut self) -> Value {
         let idx = self.read_byte();
-        self.chunk.expect("No chunk given to VM!").constants.items[idx as usize]
+        self.chunk
+            .as_ref()
+            .expect("No chunk given to VM!")
+            .constants
+            .items[idx as usize]
     }
 
     fn binary_operation(&mut self, op: ArithmeticOperator) {

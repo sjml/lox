@@ -6,7 +6,7 @@ ROOT_PATH = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
 TMP_DIR = os.path.join(ROOT_PATH, "test", "tmp")
 BOOK_REPO_PATH = os.path.join(TMP_DIR, "craftinginterpreters")
 RELATIVE_JLOX_PATH = "../../../plox.sh"
-RELATIVE_CLOX_PATH = "../../../zlox/zig-out/bin/zlox"
+RELATIVE_CLOX_PATH = "../../../rlox/target/release/rlox"
 
 JLOX_TESTS = {
      5 : "chap05_representing",
@@ -54,8 +54,8 @@ elif chapter in CLOX_TESTS:
     tester = RELATIVE_CLOX_PATH
     tester_name = "clox"
     suite = CLOX_TESTS[chapter]
-    print("Building zlox...")
-    subprocess.run(["zig", "build", "--release=safe"], cwd=os.path.join(ROOT_PATH, "zlox"))
+    print("Building rlox...")
+    subprocess.run(["cargo", "build", "--release"], cwd=os.path.join(ROOT_PATH, "rlox"))
 else:
     sys.stderr.write("Invalid chapter for testing!\n")
     sys.exit(1)
