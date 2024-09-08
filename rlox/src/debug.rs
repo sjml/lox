@@ -1,7 +1,7 @@
 use crate::value::Value;
 
 #[cfg(any(feature = "debug_trace_execution", feature = "debug_print_code"))]
-use crate::{Chunk, OpCode};
+use crate::chunk::{Chunk, OpCode};
 
 #[cfg(any(feature = "debug_trace_execution", feature = "debug_print_code"))]
 pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
@@ -25,11 +25,18 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize) -> usize {
     match OpCode::from_u8(inst) {
         Ok(op) => match op {
             OpCode::Constant => constant_instruction("OP_CONSTANT", chunk, offset),
+            OpCode::Nil => constant_instruction("OP_NIL", chunk, offset),
+            OpCode::True => constant_instruction("OP_TRUE", chunk, offset),
+            OpCode::False => constant_instruction("OP_FALSE", chunk, offset),
+            OpCode::Equal => constant_instruction("OP_EQUAL", chunk, offset),
+            OpCode::Greater => constant_instruction("OP_GREATER", chunk, offset),
+            OpCode::Less => constant_instruction("OP_LESS", chunk, offset),
             OpCode::Add => simple_instruction("OP_ADD", offset),
             OpCode::Subtract => simple_instruction("OP_SUBTRACT", offset),
             OpCode::Multiply => simple_instruction("OP_MULTIPLY", offset),
             OpCode::Divide => simple_instruction("OP_DIVIDE", offset),
             OpCode::Negate => simple_instruction("OP_NEGATE", offset),
+            OpCode::Not => simple_instruction("OP_NOT", offset),
             OpCode::Return => simple_instruction("OP_RETURN", offset),
         },
         Err(_) => {
@@ -55,5 +62,9 @@ fn constant_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
 }
 
 pub fn print_value(val: Value) {
-    print!("{}", val);
+    match val {
+        Value::Number(v) => print!("{}", v),
+        Value::Boolean(v) => print!("{}", if v { "true" } else { "false" }),
+        Value::Nil => print!("nil"),
+    }
 }

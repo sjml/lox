@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-#[cfg(any(feature = "debug_trace_execution", feature = "debug_print_code"))]
+#[cfg(feature = "debug_print_code")]
 use crate::debug;
 
 use crate::chunk::{Chunk, OpCode};
@@ -133,13 +133,14 @@ impl<'a> Compiler<'a> {
     fn number(&mut self) {
         // lexeme has already been checked to be valid float
         let val: f64 = self.parser.get_previous().lexeme.parse().unwrap();
-        self.emit_constant(val);
+        self.emit_constant(Value::Number(val));
     }
 
     fn unary(&mut self) {
         let op = self.parser.get_previous().tok_type;
         self.parse_precedence(Precedence::Unary);
         match op {
+            TokenType::Bang => self.emit_byte(OpCode::Not as u8),
             TokenType::Minus => self.emit_byte(OpCode::Negate as u8),
             _ => unreachable!(),
         }
@@ -151,10 +152,25 @@ impl<'a> Compiler<'a> {
         self.parse_precedence(rule.precedence.get_next());
 
         match op {
+            TokenType::BangEqual => self.emit_bytes(OpCode::Equal as u8, OpCode::Not as u8),
+            TokenType::EqualEqual => self.emit_byte(OpCode::Equal as u8),
+            TokenType::Greater => self.emit_byte(OpCode::Greater as u8),
+            TokenType::GreaterEqual => self.emit_bytes(OpCode::Less as u8, OpCode::Not as u8),
+            TokenType::Less => self.emit_byte(OpCode::Less as u8),
+            TokenType::LessEqual => self.emit_bytes(OpCode::Greater as u8, OpCode::Not as u8),
             TokenType::Plus => self.emit_byte(OpCode::Add as u8),
             TokenType::Minus => self.emit_byte(OpCode::Subtract as u8),
             TokenType::Star => self.emit_byte(OpCode::Multiply as u8),
             TokenType::Slash => self.emit_byte(OpCode::Divide as u8),
+            _ => unreachable!(),
+        }
+    }
+
+    fn literal(&mut self) {
+        match self.parser.get_previous().tok_type {
+            TokenType::False => self.emit_byte(OpCode::False as u8),
+            TokenType::Nil => self.emit_byte(OpCode::Nil as u8),
+            TokenType::True => self.emit_byte(OpCode::True as u8),
             _ => unreachable!(),
         }
     }
@@ -178,7 +194,7 @@ impl<'a> Compiler<'a> {
             ParseFunction::Grouping => self.grouping(),
             ParseFunction::Number => self.number(),
             ParseFunction::Binary => self.binary(),
-            // ParseFunction::Literal => todo!(),
+            ParseFunction::Literal => self.literal(),
             // ParseFunction::String => todo!(),
             // ParseFunction::Variable => todo!(),
             // ParseFunction::And => todo!(),

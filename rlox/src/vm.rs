@@ -8,7 +8,7 @@ const STACK_MAX: usize = 256;
 pub enum InterpretResult {
     Success,
     CompileError,
-    // RuntimeError,
+    RuntimeError,
 }
 
 enum ArithmeticOperator {
@@ -16,6 +16,8 @@ enum ArithmeticOperator {
     Subtract,
     Multiply,
     Divide,
+    Greater,
+    Less,
 }
 
 pub struct VM {
@@ -30,7 +32,7 @@ impl VM {
         Self {
             chunk: None,
             ip_idx: 0,
-            stack: [0.0; STACK_MAX],
+            stack: [Value::Nil; STACK_MAX],
             stack_top_idx: 0,
         }
     }
@@ -40,9 +42,16 @@ impl VM {
         self.ip_idx = 0;
     }
 
-    // pub fn reset_stack(&mut self) {
-    //     self.stack_top_idx = 0;
-    // }
+    pub fn reset_stack(&mut self) {
+        self.stack_top_idx = 0;
+    }
+
+    fn runtime_error(&mut self, msg: &str) {
+        eprintln!("{}", msg);
+        let line = self.chunk.as_ref().expect("No chunk given!").line_numbers[self.ip_idx];
+        eprintln!("[line {}] in script", line);
+        self.reset_stack();
+    }
 
     pub fn free(&mut self) {}
 
@@ -58,14 +67,18 @@ impl VM {
         self.run()
     }
 
-    pub fn push(&mut self, val: Value) {
+    fn push(&mut self, val: Value) {
         self.stack[self.stack_top_idx] = val;
         self.stack_top_idx += 1;
     }
 
-    pub fn pop(&mut self) -> Value {
+    fn pop(&mut self) -> Value {
         self.stack_top_idx -= 1;
         self.stack[self.stack_top_idx]
+    }
+
+    fn peek(&self, distance: usize) -> Value {
+        self.stack[self.stack_top_idx - (1 + distance)]
     }
 
     fn read_byte(&mut self) -> u8 {
@@ -82,16 +95,26 @@ impl VM {
             .items[idx as usize]
     }
 
-    fn binary_operation(&mut self, op: ArithmeticOperator) {
-        let b = self.pop();
-        let a = self.pop();
-        let result = match op {
-            ArithmeticOperator::Add => a + b,
-            ArithmeticOperator::Subtract => a - b,
-            ArithmeticOperator::Multiply => a * b,
-            ArithmeticOperator::Divide => a / b,
-        };
-        self.push(result);
+    fn binary_operation(&mut self, op: ArithmeticOperator) -> bool {
+        match (self.peek(1), self.peek(0)) {
+            (Value::Number(a), Value::Number(b)) => {
+                let _ = self.pop();
+                let _ = self.pop();
+                match op {
+                    ArithmeticOperator::Add => self.push(Value::Number(a + b)),
+                    ArithmeticOperator::Subtract => self.push(Value::Number(a - b)),
+                    ArithmeticOperator::Multiply => self.push(Value::Number(a * b)),
+                    ArithmeticOperator::Divide => self.push(Value::Number(a / b)),
+                    ArithmeticOperator::Greater => self.push(Value::Boolean(a > b)),
+                    ArithmeticOperator::Less => self.push(Value::Boolean(a < b)),
+                };
+                true
+            }
+            _ => {
+                self.runtime_error("Operands must be numbers.");
+                false
+            }
+        }
     }
 
     pub fn run(&mut self) -> InterpretResult {
@@ -105,7 +128,7 @@ impl VM {
                     print!(" ]");
                 }
                 println!();
-                debug::disassemble_instruction(self.chunk, self.ip_idx);
+                debug::disassemble_instruction(&self.chunk.as_ref().unwrap(), self.ip_idx);
             }
             let instruction = match OpCode::from_u8(self.read_byte()) {
                 Ok(inst) => inst,
@@ -116,14 +139,58 @@ impl VM {
                     let constant = self.read_constant();
                     self.push(constant);
                 }
-                OpCode::Add => self.binary_operation(ArithmeticOperator::Add),
-                OpCode::Subtract => self.binary_operation(ArithmeticOperator::Subtract),
-                OpCode::Multiply => self.binary_operation(ArithmeticOperator::Multiply),
-                OpCode::Divide => self.binary_operation(ArithmeticOperator::Divide),
-                OpCode::Negate => {
-                    let val = self.pop();
-                    self.push(-val);
+                OpCode::Nil => self.push(Value::Nil),
+                OpCode::True => self.push(Value::Boolean(true)),
+                OpCode::False => self.push(Value::Boolean(false)),
+                OpCode::Equal => {
+                    let b = self.pop();
+                    let a = self.pop();
+                    self.push(Value::Boolean(a.equals(&b)));
                 }
+                OpCode::Greater => {
+                    if !self.binary_operation(ArithmeticOperator::Greater) {
+                        return InterpretResult::RuntimeError;
+                    }
+                }
+                OpCode::Less => {
+                    if !self.binary_operation(ArithmeticOperator::Less) {
+                        return InterpretResult::RuntimeError;
+                    }
+                }
+                OpCode::Add => {
+                    if !self.binary_operation(ArithmeticOperator::Add) {
+                        return InterpretResult::RuntimeError;
+                    }
+                }
+                OpCode::Subtract => {
+                    if !self.binary_operation(ArithmeticOperator::Subtract) {
+                        return InterpretResult::RuntimeError;
+                    }
+                }
+                OpCode::Multiply => {
+                    if !self.binary_operation(ArithmeticOperator::Multiply) {
+                        return InterpretResult::RuntimeError;
+                    }
+                }
+                OpCode::Divide => {
+                    if !self.binary_operation(ArithmeticOperator::Divide) {
+                        return InterpretResult::RuntimeError;
+                    }
+                }
+                OpCode::Not => {
+                    let v = self.pop();
+                    self.push(Value::Boolean(v.is_falsey()));
+                }
+                OpCode::Negate => match self.peek(0) {
+                    Value::Number(v) => {
+                        let _ = self.pop();
+                        self.push(Value::Number(-v));
+                    }
+                    _ => {
+                        self.runtime_error("Operand must be an number.");
+                        return InterpretResult::RuntimeError;
+                    }
+                },
                 OpCode::Return => {
                     debug::print_value(self.pop());
                     println!();

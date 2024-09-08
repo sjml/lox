@@ -5,10 +5,17 @@ use crate::value::{Value, ValueArray};
 #[derive(Debug, Copy, Clone)]
 pub enum OpCode {
     Constant,
+    Nil,
+    True,
+    False,
+    Equal,
+    Greater,
+    Less,
     Add,
     Subtract,
     Multiply,
     Divide,
+    Not,
     Negate,
     Return,
 }
@@ -19,12 +26,19 @@ pub enum OpCodeError {
 }
 
 impl OpCode {
-    const VARIANTS: [OpCode; 7] = [
+    const VARIANTS: [OpCode; 14] = [
         OpCode::Constant,
+        OpCode::Nil,
+        OpCode::True,
+        OpCode::False,
+        OpCode::Equal,
+        OpCode::Greater,
+        OpCode::Less,
         OpCode::Add,
         OpCode::Subtract,
         OpCode::Multiply,
         OpCode::Divide,
+        OpCode::Not,
         OpCode::Negate,
         OpCode::Return,
     ];
