@@ -2,8 +2,14 @@ use crate::util;
 use crate::value::{Value, ValueArray};
 
 #[repr(u8)]
+#[derive(Debug, Copy, Clone)]
 pub enum OpCode {
     Constant,
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Negate,
     Return,
 }
 
@@ -13,12 +19,18 @@ pub enum OpCodeError {
 }
 
 impl OpCode {
+    const VARIANTS: [OpCode; 7] = [
+        OpCode::Constant,
+        OpCode::Add,
+        OpCode::Subtract,
+        OpCode::Multiply,
+        OpCode::Divide,
+        OpCode::Negate,
+        OpCode::Return,
+    ];
+
     pub fn from_u8(val: u8) -> Result<OpCode, OpCodeError> {
-        match val {
-            0 => Ok(OpCode::Constant),
-            1 => Ok(OpCode::Return),
-            _ => Err(OpCodeError::InvalidIntegerValue),
-        }
+        Self::VARIANTS.get(val as usize).copied().ok_or(OpCodeError::InvalidIntegerValue)
     }
 }
 
