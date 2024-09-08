@@ -30,7 +30,10 @@ impl OpCode {
     ];
 
     pub fn from_u8(val: u8) -> Result<OpCode, OpCodeError> {
-        Self::VARIANTS.get(val as usize).copied().ok_or(OpCodeError::InvalidIntegerValue)
+        Self::VARIANTS
+            .get(val as usize)
+            .copied()
+            .ok_or(OpCodeError::InvalidIntegerValue)
     }
 }
 

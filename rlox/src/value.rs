@@ -2,7 +2,6 @@ use crate::util;
 
 pub type Value = f64;
 
-
 pub struct ValueArray {
     capacity: usize,
     pub count: usize,
