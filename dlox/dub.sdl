@@ -1,0 +1,6 @@
+name "dlox"
+description "D implementation of Lox bytecode interpreter"
+authors "Shane Liesegang"
+copyright "Copyright © 2024, Shane Liesegang"
+license "GPL-3.0-or-later"
+// versions "DebugTraceExecution"

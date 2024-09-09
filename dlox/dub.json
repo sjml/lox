@@ -1,9 +1,0 @@
-{
-	"authors": [
-		"Shane Liesegang"
-	],
-	"copyright": "Copyright © 2024, Shane Liesegang",
-	"description": "D implementation of Lox bytecode interpreter",
-	"license": "GPL-3.0-or-later",
-	"name": "dlox"
-}

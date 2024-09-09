@@ -1,10 +1,17 @@
 module chunk;
 
+import std.conv;
+
 import value : Value, ValueArray;
 import util : growCapacity;
 
 enum OpCode {
     Constant,
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Negate,
     Return,
 }
 
@@ -24,9 +31,9 @@ struct Chunk {
         this.count += 1;
     }
 
-    size_t addConstant(Value val) {
+    ubyte addConstant(Value val) {
         this.constants.add(val);
-        return this.constants.count - 1;
+        return to!byte(this.constants.count - 1);
     }
 
     void free() {

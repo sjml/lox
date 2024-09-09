@@ -26,6 +26,16 @@ size_t disassembleInstruction(Chunk* chunk, size_t offset) {
     switch (inst) {
         case OpCode.Constant:
             return constantInstruction("OP_CONSTANT", chunk, offset);
+        case OpCode.Add:
+            return simpleInstruction("OP_ADD", offset);
+        case OpCode.Subtract:
+            return simpleInstruction("OP_SUBTRACT", offset);
+        case OpCode.Multiply:
+            return simpleInstruction("OP_MULTIPLY", offset);
+        case OpCode.Divide:
+            return simpleInstruction("OP_DIVIDE", offset);
+        case OpCode.Negate:
+            return simpleInstruction("OP_NEGATE", offset);
         case OpCode.Return:
             return simpleInstruction("OP_RETURN", offset);
         default:
