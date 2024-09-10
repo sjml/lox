@@ -3,6 +3,7 @@ module vm;
 import std.stdio;
 
 import chunk : Chunk, OpCode;
+import compiler : Compiler;
 import value : Value, printValue;
 import lox_debug;
 
@@ -22,11 +23,12 @@ enum BinaryOperator {
 static const STACK_MAX = 256;
 
 struct VM {
-    Chunk* chunk;
-    private ubyte* ip;
+    Chunk* chunk = null;
+    private ubyte* ip = null;
     private Value[STACK_MAX] stack;
-    private Value* stackTop;
-    private static VM* instance;
+    private Value* stackTop = null;
+    private Compiler compiler;
+    private static VM* instance = null;
 
     static void setup() {
         VM.instance = new VM();
@@ -41,10 +43,9 @@ struct VM {
         this.stackTop = stack.ptr;
     }
 
-    static InterpretResult interpret(Chunk* chunk) {
-        VM.instance.chunk = chunk;
-        VM.instance.ip = VM.instance.chunk.code.ptr;
-        return VM.instance.run();
+    static InterpretResult interpret(string source) {
+        VM.instance.compiler.compile(source);
+        return InterpretResult.Ok;
     }
 
     pragma(inline)

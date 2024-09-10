@@ -1,34 +1,55 @@
-import vm : VM;
+import std.stdio;
+import std.file;
+
+import vm : VM, InterpretResult;
 import chunk : Chunk, OpCode;
 import lox_debug;
 
-int main()
+int main(string[] args)
 {
-    Chunk chunk;
     VM.setup();
+    scope(exit) VM.teardown();
 
-    ubyte constant_idx = chunk.addConstant(1.2);
-    chunk.write(OpCode.Constant, 123);
-    chunk.write(constant_idx, 123);
+    switch (args.length) {
+        case 1:
+            return repl();
+            break;
+        case 2:
+            return runFile(args[1]);
+            break;
+        default:
+            writefln("Usage: dlox [path]");
+            return 64;
+    }
 
-    constant_idx = chunk.addConstant(3.4);
-    chunk.write(OpCode.Constant, 123);
-    chunk.write(constant_idx, 123);
-
-    chunk.write(OpCode.Add, 123);
-
-    constant_idx = chunk.addConstant(5.6);
-    chunk.write(OpCode.Constant, 123);
-    chunk.write(constant_idx, 123);
-
-    chunk.write(OpCode.Divide, 123);
-
-    chunk.write(OpCode.Negate, 123);
-    chunk.write(OpCode.Return, 123);
-
-    VM.interpret(&chunk);
-
-    VM.teardown();
-    chunk.free();
     return 0;
+}
+
+int repl() {
+    while (true) {
+        writef("> ");
+        string line = stdin.readln();
+        if (line.length == 0) {
+            writef("\nExiting...\n");
+            break;
+        }
+        VM.interpret(line);
+    }
+    return 0;
+}
+
+int runFile(string path) {
+    string source = readText(path);
+    InterpretResult result = VM.interpret(source);
+
+    switch (result) {
+        case InterpretResult.CompileError:
+            return 65;
+        case InterpretResult.RuntimeError:
+            return 70;
+        case InterpretResult.Ok:
+            return 0;
+        default:
+            assert(0); // unreachable
+    }
 }
