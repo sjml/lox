@@ -38,46 +38,46 @@ struct ParseRule {
 }
 
 ParseRule[] rules = [
-    /* LeftParen    */ ParseRule(&Compiler.grouping, null,             Precedence.None  ),
-    /* RightParen   */ ParseRule(null,               null,             Precedence.None  ),
-    /* LeftBrace    */ ParseRule(null,               null,             Precedence.None  ),
-    /* RightBrace   */ ParseRule(null,               null,             Precedence.None  ),
-    /* Comma        */ ParseRule(null,               null,             Precedence.None  ),
-    /* Dot          */ ParseRule(null,               null,             Precedence.None  ),
-    /* Minus        */ ParseRule(&Compiler.unary,    &Compiler.binary, Precedence.Term  ),
-    /* Plus         */ ParseRule(null,               &Compiler.binary, Precedence.Term  ),
-    /* Semicolon    */ ParseRule(null,               null,             Precedence.None  ),
-    /* Slash        */ ParseRule(null,               &Compiler.binary, Precedence.Factor),
-    /* Star         */ ParseRule(null,               &Compiler.binary, Precedence.Factor),
-    /* Bang         */ ParseRule(null,               null,             Precedence.None  ),
-    /* BangEqual    */ ParseRule(null,               null,             Precedence.None  ),
-    /* Equal        */ ParseRule(null,               null,             Precedence.None  ),
-    /* EqualEqual   */ ParseRule(null,               null,             Precedence.None  ),
-    /* Greater      */ ParseRule(null,               null,             Precedence.None  ),
-    /* GreaterEqual */ ParseRule(null,               null,             Precedence.None  ),
-    /* Less         */ ParseRule(null,               null,             Precedence.None  ),
-    /* LessEqual    */ ParseRule(null,               null,             Precedence.None  ),
-    /* Identifier   */ ParseRule(null,               null,             Precedence.None  ),
-    /* String       */ ParseRule(null,               null,             Precedence.None  ),
-    /* Number       */ ParseRule(&Compiler.number,   null,             Precedence.None  ),
-    /* And          */ ParseRule(null,               null,             Precedence.None  ),
-    /* Class        */ ParseRule(null,               null,             Precedence.None  ),
-    /* Else         */ ParseRule(null,               null,             Precedence.None  ),
-    /* False        */ ParseRule(null,               null,             Precedence.None  ),
-    /* For          */ ParseRule(null,               null,             Precedence.None  ),
-    /* Fun          */ ParseRule(null,               null,             Precedence.None  ),
-    /* If           */ ParseRule(null,               null,             Precedence.None  ),
-    /* Nil          */ ParseRule(null,               null,             Precedence.None  ),
-    /* Or           */ ParseRule(null,               null,             Precedence.None  ),
-    /* Print        */ ParseRule(null,               null,             Precedence.None  ),
-    /* Return       */ ParseRule(null,               null,             Precedence.None  ),
-    /* Super        */ ParseRule(null,               null,             Precedence.None  ),
-    /* This         */ ParseRule(null,               null,             Precedence.None  ),
-    /* True         */ ParseRule(null,               null,             Precedence.None  ),
-    /* Var          */ ParseRule(null,               null,             Precedence.None  ),
-    /* While        */ ParseRule(null,               null,             Precedence.None  ),
-    /* Error        */ ParseRule(null,               null,             Precedence.None  ),
-    /* EndOfFile    */ ParseRule(null,               null,             Precedence.None  ),
+    /* LeftParen    */ ParseRule(&Compiler.grouping, null,             Precedence.None        ),
+    /* RightParen   */ ParseRule(null,               null,             Precedence.None        ),
+    /* LeftBrace    */ ParseRule(null,               null,             Precedence.None        ),
+    /* RightBrace   */ ParseRule(null,               null,             Precedence.None        ),
+    /* Comma        */ ParseRule(null,               null,             Precedence.None        ),
+    /* Dot          */ ParseRule(null,               null,             Precedence.None        ),
+    /* Minus        */ ParseRule(&Compiler.unary,    &Compiler.binary, Precedence.Term        ),
+    /* Plus         */ ParseRule(null,               &Compiler.binary, Precedence.Term        ),
+    /* Semicolon    */ ParseRule(null,               null,             Precedence.None        ),
+    /* Slash        */ ParseRule(null,               &Compiler.binary, Precedence.Factor      ),
+    /* Star         */ ParseRule(null,               &Compiler.binary, Precedence.Factor      ),
+    /* Bang         */ ParseRule(&Compiler.unary,    null,             Precedence.None        ),
+    /* BangEqual    */ ParseRule(null,               &Compiler.binary, Precedence.Equality    ),
+    /* Equal        */ ParseRule(null,               null,             Precedence.None        ),
+    /* EqualEqual   */ ParseRule(null,               &Compiler.binary, Precedence.Equality    ),
+    /* Greater      */ ParseRule(null,               &Compiler.binary, Precedence.Comparison  ),
+    /* GreaterEqual */ ParseRule(null,               &Compiler.binary, Precedence.Comparison  ),
+    /* Less         */ ParseRule(null,               &Compiler.binary, Precedence.Comparison  ),
+    /* LessEqual    */ ParseRule(null,               &Compiler.binary, Precedence.Comparison  ),
+    /* Identifier   */ ParseRule(null,               null,             Precedence.None        ),
+    /* String       */ ParseRule(null,               null,             Precedence.None        ),
+    /* Number       */ ParseRule(&Compiler.number,   null,             Precedence.None        ),
+    /* And          */ ParseRule(null,               null,             Precedence.None        ),
+    /* Class        */ ParseRule(null,               null,             Precedence.None        ),
+    /* Else         */ ParseRule(null,               null,             Precedence.None        ),
+    /* False        */ ParseRule(&Compiler.literal,  null,             Precedence.None        ),
+    /* For          */ ParseRule(null,               null,             Precedence.None        ),
+    /* Fun          */ ParseRule(null,               null,             Precedence.None        ),
+    /* If           */ ParseRule(null,               null,             Precedence.None        ),
+    /* Nil          */ ParseRule(&Compiler.literal,  null,             Precedence.None        ),
+    /* Or           */ ParseRule(null,               null,             Precedence.None        ),
+    /* Print        */ ParseRule(null,               null,             Precedence.None        ),
+    /* Return       */ ParseRule(null,               null,             Precedence.None        ),
+    /* Super        */ ParseRule(null,               null,             Precedence.None        ),
+    /* This         */ ParseRule(null,               null,             Precedence.None        ),
+    /* True         */ ParseRule(&Compiler.literal,  null,             Precedence.None        ),
+    /* Var          */ ParseRule(null,               null,             Precedence.None        ),
+    /* While        */ ParseRule(null,               null,             Precedence.None        ),
+    /* Error        */ ParseRule(null,               null,             Precedence.None        ),
+    /* EndOfFile    */ ParseRule(null,               null,             Precedence.None        ),
 ];
 
 struct Compiler{
@@ -193,11 +193,26 @@ struct Compiler{
         self.parsePrecedence(to!Precedence(rule.precedence + 1));
 
         switch (op) {
+            case TokenType.BangEqual: self.emitBytes(OpCode.Equal, OpCode.Not); break;
+            case TokenType.EqualEqual: self.emitByte(OpCode.Equal); break;
+            case TokenType.Greater: self.emitByte(OpCode.Greater); break;
+            case TokenType.GreaterEqual: self.emitBytes(OpCode.Less, OpCode.Not); break;
+            case TokenType.Less: self.emitByte(OpCode.Less); break;
+            case TokenType.LessEqual: self.emitBytes(OpCode.Greater, OpCode.Not); break;
             case TokenType.Plus: self.emitByte(OpCode.Add); break;
             case TokenType.Minus: self.emitByte(OpCode.Subtract); break;
             case TokenType.Star: self.emitByte(OpCode.Multiply); break;
             case TokenType.Slash: self.emitByte(OpCode.Divide); break;
-            default: return; // should be unreachable
+            default: assert(false); // unreachable
+        }
+    }
+
+    static void literal(Compiler* self) {
+        switch (self.parser.previous.tok_type) {
+            case TokenType.False: self.emitByte(OpCode.False); break;
+            case TokenType.Nil: self.emitByte(OpCode.Nil); break;
+            case TokenType.True: self.emitByte(OpCode.True); break;
+            default: assert(false); // unreachable
         }
     }
 
@@ -207,14 +222,15 @@ struct Compiler{
         self.parsePrecedence(Precedence.Unary);
 
         switch (op) {
+            case TokenType.Bang: self.emitByte(OpCode.Not); break;
             case TokenType.Minus: self.emitByte(OpCode.Negate); break;
-            default: return; // should be unreachable
+            default: assert(false); // unreachable
         }
     }
 
     static void number(Compiler* self) {
         double value = parse!double(self.parser.previous.lexeme);
-        self.emitConstant(value);
+        self.emitConstant(Value(value));
     }
 
     private void errorAtCurrent(const string message) {

@@ -4,7 +4,7 @@ import std.stdio;
 
 import chunk : Chunk, OpCode;
 import compiler : Compiler;
-import value : Value, printValue;
+import value : Value, ValueType, printValue;
 import lox_debug;
 
 enum InterpretResult {
@@ -18,6 +18,8 @@ enum BinaryOperator {
     Subtract,
     Multiply,
     Divide,
+    GreaterThan,
+    LessThan,
 }
 
 static const STACK_MAX = 256;
@@ -41,6 +43,15 @@ struct VM {
 
     private void resetStack() {
         this.stackTop = stack.ptr;
+    }
+
+    private void runtimeError(T...)(T args) {
+        writefln(args);
+
+        size_t inst = this.ip - this.chunk.code.ptr - 1;
+        size_t line = this.chunk.line_numbers[inst];
+        stderr.writefln("[line %d] in script", line);
+        this.resetStack();
     }
 
     static InterpretResult interpret(string source) {
@@ -74,25 +85,40 @@ struct VM {
     }
 
     pragma(inline)
-    private void binaryOperation(BinaryOperator op) {
-        Value b = this.pop();
-        Value a = this.pop();
+    private bool binaryOperation(BinaryOperator op) {
+        if (
+               (!this.peek(0).val_type == ValueType.Number)
+            || (!this.peek(1).val_type == ValueType.Number)
+        ) {
+            this.runtimeError("Operands must be numbers.");
+            return false;
+        }
+
+        double b = this.pop().number;
+        double a = this.pop().number;
         switch (op) {
+            case BinaryOperator.GreaterThan:
+                this.push(Value(a > b));
+                break;
+            case BinaryOperator.LessThan:
+                this.push(Value(a < b));
+                break;
             case BinaryOperator.Add:
-                this.push(a + b);
+                this.push(Value(a + b));
                 break;
             case BinaryOperator.Subtract:
-                this.push(a - b);
+                this.push(Value(a - b));
                 break;
             case BinaryOperator.Multiply:
-                this.push(a * b);
+                this.push(Value(a * b));
                 break;
             case BinaryOperator.Divide:
-                this.push(a / b);
+                this.push(Value(a / b));
                 break;
             default:
-                assert(0); // unreachable
+                assert(false); // unreachable
         }
+        return true;
     }
 
     private InterpretResult run() {
@@ -113,12 +139,53 @@ struct VM {
                     Value constant = this.readConstant();
                     this.push(constant);
                     break;
-                case OpCode.Add: this.binaryOperation(BinaryOperator.Add); break;
-                case OpCode.Subtract: this.binaryOperation(BinaryOperator.Subtract); break;
-                case OpCode.Multiply: this.binaryOperation(BinaryOperator.Multiply); break;
-                case OpCode.Divide: this.binaryOperation(BinaryOperator.Divide); break;
+                case OpCode.Nil: this.push(Value.nil()); break;
+                case OpCode.True: this.push(Value(true)); break;
+                case OpCode.False: this.push(Value(false)); break;
+                case OpCode.Equal:
+                    Value b = this.pop();
+                    Value a = this.pop();
+                    push(Value(a.equals(b)));
+                    break;
+                case OpCode.Greater:
+                    if (!this.binaryOperation(BinaryOperator.GreaterThan)) {
+                        return InterpretResult.RuntimeError;
+                    }
+                    break;
+                case OpCode.Less:
+                    if (!this.binaryOperation(BinaryOperator.LessThan)) {
+                        return InterpretResult.RuntimeError;
+                    }
+                    break;
+                case OpCode.Add:
+                    if (!this.binaryOperation(BinaryOperator.Add)) {
+                        return InterpretResult.RuntimeError;
+                    }
+                    break;
+                case OpCode.Subtract:
+                    if (!this.binaryOperation(BinaryOperator.Subtract)) {
+                        return InterpretResult.RuntimeError;
+                    }
+                    break;
+                case OpCode.Multiply:
+                    if (!this.binaryOperation(BinaryOperator.Multiply)) {
+                        return InterpretResult.RuntimeError;
+                    }
+                    break;
+                case OpCode.Divide:
+                    if (!this.binaryOperation(BinaryOperator.Divide)) {
+                        return InterpretResult.RuntimeError;
+                    }
+                    break;
+                case OpCode.Not:
+                    this.push(Value(pop().isFalsey()));
+                    break;
                 case OpCode.Negate:
-                    this.push(-this.pop());
+                    if (!this.peek(0).val_type == ValueType.Number) {
+                        this.runtimeError("Operand must be a number.");
+                        return InterpretResult.RuntimeError;
+                    }
+                    this.push(Value(-this.pop().number));
                     break;
                 case OpCode.Return:
                     printValue(this.pop());
@@ -139,5 +206,9 @@ struct VM {
     private Value pop() {
         this.stackTop--;
         return *this.stackTop;
+    }
+
+    private Value peek(int distance) {
+        return this.stackTop[-1 - distance];
     }
 }

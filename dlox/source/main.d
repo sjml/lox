@@ -1,5 +1,6 @@
 import std.stdio;
 import std.file;
+import std.string : stripRight;
 
 import vm : VM, InterpretResult;
 import chunk : Chunk, OpCode;
@@ -33,6 +34,7 @@ int repl() {
             writef("\nExiting...\n");
             break;
         }
+        line = stripRight(line);
         VM.interpret(line);
     }
     return 0;
@@ -50,6 +52,6 @@ int runFile(string path) {
         case InterpretResult.Ok:
             return 0;
         default:
-            assert(0); // unreachable
+            assert(false); // unreachable
     }
 }

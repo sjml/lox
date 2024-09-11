@@ -58,17 +58,23 @@ struct Token {
 }
 
 struct Scanner {
+    string source;
     immutable(char)* start = null;
     immutable(char)* current = null;
     size_t line;
 
     void setup(string source) {
+        this.source = source;
         this.start = source.ptr;
         this.current = this.start;
         this.line = 1;
     }
 
     Token scanToken() {
+        if (this.isAtEnd()) {
+            return this.makeToken(TokenType.EndOfFile);
+        }
+
         this.skipWhitespaceAndComments();
         this.start = this.current;
 
@@ -115,7 +121,8 @@ struct Scanner {
     }
 
     private bool isAtEnd() {
-        return *this.current == '\0';
+        return this.current - this.source.ptr >= this.source.length;
+        // return *this.current == '\0';
     }
 
     private char advance() {
@@ -153,8 +160,8 @@ struct Scanner {
         if (this.current - this.start != start + rest.length) {
             return TokenType.Identifier;
         }
-        for (size_t i = start; i < rest.length; i++) {
-            if (this.start[i] != rest[i]) {
+        for (size_t i = 0; i < rest.length; i++) {
+            if (this.start[start+i] != rest[i]) {
                 return TokenType.Identifier;
             }
         }
