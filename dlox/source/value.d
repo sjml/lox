@@ -64,13 +64,7 @@ struct Value
         case ValueType.Number:
             return this.number == other.number;
         case ValueType.Obj:
-            ObjString* a = this.obj.asString();
-            ObjString* b = this.obj.asString();
-            if (a.length != b.length)
-            {
-                return false;
-            }
-            return a[0 .. a.length].equal(b[0 .. b.length]);
+            return this == other;
         default:
             assert(false); // unreachable
         }

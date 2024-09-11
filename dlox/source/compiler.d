@@ -304,8 +304,8 @@ struct Compiler
 
     static void sstring(Compiler* self)
     {
-        ObjString* os = ObjString.fromCopyOf(
-                self.parser.previous.lexeme[1 .. self.parser.previous.lexeme.length - 1]);
+        size_t len = self.parser.previous.lexeme.length;
+        ObjString* os = ObjString.fromCopyOf(self.parser.previous.lexeme[1 .. len - 1]);
         self.emitConstant(Value(cast(Obj*) os));
     }
 

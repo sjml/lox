@@ -6,6 +6,7 @@ import chunk : Chunk, OpCode;
 import compiler : Compiler;
 import value : Value, ValueType, printValue;
 import lobj : ObjType, Obj, ObjString;
+import table : Table;
 import lox_debug;
 
 enum InterpretResult
@@ -33,6 +34,7 @@ struct VM
     private ubyte* ip = null;
     private Value[STACK_MAX] stack;
     private Value* stackTop = null;
+    Table strings;
     Obj* objects = null;
     private Compiler compiler;
     static VM* instance = null;
@@ -45,6 +47,7 @@ struct VM
 
     static void teardown()
     {
+        VM.instance.strings.free();
         VM.instance.freeObjects();
         VM.instance = null;
     }
@@ -149,7 +152,8 @@ struct VM
         ObjString* b = pop().obj.asString();
         ObjString* a = pop().obj.asString();
 
-        ObjString* newStr = ObjString.allocateString(a.length + b.length);
+        size_t newLen = a.length + b.length;
+        ObjString* newStr = ObjString.allocateString(newLen, 0);
         for (size_t idx = 0; idx < a.length; idx++)
         {
             newStr.chars[idx] = a.chars[idx];
@@ -158,7 +162,8 @@ struct VM
         {
             newStr.chars[idx + a.length] = b.chars[idx];
         }
-        newStr.chars[a.length + b.length] = '\0';
+        newStr.chars[newLen] = '\0';
+        newStr.hash = ObjString.hashString(cast(immutable(char)*) newStr.chars, newLen);
 
         push(Value(cast(Obj*) newStr));
     }
