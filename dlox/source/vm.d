@@ -1,6 +1,7 @@
 module vm;
 
 import std.stdio;
+import std.string;
 
 import chunk : Chunk, OpCode;
 import compiler : Compiler;
@@ -34,6 +35,7 @@ struct VM
     private ubyte* ip = null;
     private Value[STACK_MAX] stack;
     private Value* stackTop = null;
+    Table globals;
     Table strings;
     Obj* objects = null;
     private Compiler compiler;
@@ -47,6 +49,7 @@ struct VM
 
     static void teardown()
     {
+        VM.instance.globals.free();
         VM.instance.strings.free();
         VM.instance.freeObjects();
         VM.instance = null;
@@ -70,7 +73,7 @@ struct VM
 
     private void runtimeError(T...)(T args)
     {
-        writefln(args);
+        stderr.writefln(args);
 
         size_t inst = this.ip - this.chunk.code.ptr - 1;
         size_t line = this.chunk.line_numbers[inst];
@@ -97,7 +100,7 @@ struct VM
         VM.instance.chunk = null;
         VM.instance.ip = null;
 
-        return InterpretResult.Ok;
+        return res;
     }
 
     pragma(inline) private ubyte readByte()
@@ -110,9 +113,13 @@ struct VM
         return this.chunk.constants.values[this.readByte];
     }
 
+    pragma(inline) private ObjString* readString() {
+        return this.readConstant().obj.asString();
+    }
+
     pragma(inline) private bool binaryNumericOperation(BinaryOperator op)
     {
-        if ((!this.peek(0).val_type == ValueType.Number) || (!this.peek(1)
+        if (!(this.peek(0).val_type == ValueType.Number) || !(this.peek(1)
                 .val_type == ValueType.Number))
         {
             this.runtimeError("Operands must be numbers.");
@@ -200,6 +207,31 @@ struct VM
             case OpCode.False:
                 this.push(Value(false));
                 break;
+            case OpCode.Pop:
+                this.pop();
+                break;
+            case OpCode.GetGlobal:
+                ObjString* name = this.readString();
+                Value val;
+                if (!this.globals.get(name, &val)) {
+                    this.runtimeError("Undefined variable '%s'.", fromStringz(name.chars));
+                    return InterpretResult.RuntimeError;
+                }
+                this.push(val);
+                break;
+            case OpCode.DefineGlobal:
+                ObjString* name = this.readString();
+                this.globals.set(name, this.peek(0));
+                this.pop();
+                break;
+            case OpCode.SetGlobal:
+                ObjString* name = this.readString();
+                if (this.globals.set(name, this.peek(0))) {
+                    this.globals.remove(name);
+                    this.runtimeError("Undefined variable '%s'.", fromStringz(name.chars));
+                    return InterpretResult.RuntimeError;
+                }
+                break;
             case OpCode.Equal:
                 Value b = this.pop();
                 Value a = this.pop();
@@ -223,8 +255,16 @@ struct VM
                 {
                     this.concatenateStrings();
                 }
-                else if (!this.binaryNumericOperation(BinaryOperator.Add))
+                else if (this.peek(0).val_type == ValueType.Number
+                        && (this.peek(1).val_type == ValueType.Number))
                 {
+                    double b = this.pop().number;
+                    double a = this.pop().number;
+                    this.push(Value(a + b));
+                }
+                else
+                {
+                    this.runtimeError("Operands must be two numbers or two strings.");
                     return InterpretResult.RuntimeError;
                 }
                 break;
@@ -250,16 +290,18 @@ struct VM
                 this.push(Value(pop().isFalsey()));
                 break;
             case OpCode.Negate:
-                if (!this.peek(0).val_type == ValueType.Number)
+                if (this.peek(0).val_type != ValueType.Number)
                 {
                     this.runtimeError("Operand must be a number.");
                     return InterpretResult.RuntimeError;
                 }
                 this.push(Value(-this.pop().number));
                 break;
-            case OpCode.Return:
+            case OpCode.Print:
                 printValue(this.pop());
                 writefln("");
+                break;
+            case OpCode.Return:
                 return InterpretResult.Ok;
             default:
                 stderr.writefln("ERROR: Unknown opcode '%d'", inst);

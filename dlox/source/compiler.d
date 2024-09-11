@@ -32,7 +32,7 @@ enum Precedence
     Primary,
 }
 
-alias ParseFunction = void function(Compiler*);
+alias ParseFunction = void function(Compiler*, bool canAssign);
 
 struct ParseRule
 {
@@ -62,7 +62,7 @@ ParseRule[] rules = [
     /* GreaterEqual */ ParseRule(null,               &Compiler.binary, Precedence.Comparison  ),
     /* Less         */ ParseRule(null,               &Compiler.binary, Precedence.Comparison  ),
     /* LessEqual    */ ParseRule(null,               &Compiler.binary, Precedence.Comparison  ),
-    /* Identifier   */ ParseRule(null,               null,             Precedence.None        ),
+    /* Identifier   */ ParseRule(&Compiler.variable, null,             Precedence.None        ),
     /* String       */ ParseRule(&Compiler.sstring,  null,             Precedence.None        ),
     /* Number       */ ParseRule(&Compiler.number,   null,             Precedence.None        ),
     /* And          */ ParseRule(null,               null,             Precedence.None        ),
@@ -98,8 +98,9 @@ struct Compiler
         this.compilingChunk = c;
 
         this.advance();
-        expression(&this);
-        this.consume(TokenType.EndOfFile, "Expect end of expression.");
+        while (!this.match(TokenType.EndOfFile)) {
+            Compiler.declaration(&this);
+        }
         this.end();
         return !this.parser.hadError;
     }
@@ -134,6 +135,18 @@ struct Compiler
         }
 
         this.errorAtCurrent(message);
+    }
+
+    private bool match(TokenType tok_type) {
+        if (!this.check(tok_type)) {
+            return false;
+        }
+        this.advance();
+        return true;
+    }
+
+    private bool check(TokenType tok_type) {
+        return this.parser.current.tok_type == tok_type;
     }
 
     private void emitByte(ubyte data)
@@ -190,14 +203,32 @@ struct Compiler
             return;
         }
 
-        prefixRule(&this);
+        bool canAssign = precedence <= Precedence.Assignment;
+        prefixRule(&this, canAssign);
 
         while (precedence <= Compiler.getRule(this.parser.current.tok_type).precedence)
         {
             this.advance();
             ParseFunction infixRule = Compiler.getRule(this.parser.previous.tok_type).infix;
-            infixRule(&this);
+            infixRule(&this, canAssign);
         }
+
+        if (canAssign && this.match(TokenType.Equal)) {
+            this.error("Invalid assignment target.");
+        }
+    }
+
+    private ubyte parseVariable(string errorMessage) {
+        this.consume(TokenType.Identifier, errorMessage);
+        return this.identifierConstant(&this.parser.previous);
+    }
+
+    private void defineVariable(ubyte global) {
+        this.emitBytes(OpCode.DefineGlobal, global);
+    }
+
+    private ubyte identifierConstant(Token* name) {
+        return this.makeConstant(Value(cast(Obj*) ObjString.fromCopyOf(name.lexeme)));
     }
 
     static ParseRule* getRule(TokenType tok_type)
@@ -205,7 +236,29 @@ struct Compiler
         return &rules[tok_type];
     }
 
-    static void grouping(Compiler* self)
+    static void declaration(Compiler* self) {
+        if (self.match(TokenType.Var)) {
+            Compiler.varDeclaration(self);
+        }
+        else {
+            Compiler.statement(self);
+        }
+
+        if (self.parser.panicMode) {
+            self.synchronize();
+        }
+    }
+
+    static void statement(Compiler* self) {
+        if (self.match(TokenType.Print)) {
+            self.printStatement();
+        }
+        else {
+            self.expressionStatement();
+        }
+    }
+
+    static void grouping(Compiler* self, bool canAssign)
     {
         Compiler.expression(self);
         self.consume(TokenType.RightParen, "Expect ')' after expression.");
@@ -216,7 +269,27 @@ struct Compiler
         self.parsePrecedence(Precedence.Assignment);
     }
 
-    static void binary(Compiler* self)
+    static void varDeclaration(Compiler* self) {
+        ubyte global = self.parseVariable("Expect variable name.");
+
+        if (self.match(TokenType.Equal)) {
+            Compiler.expression(self);
+        }
+        else {
+            self.emitByte(OpCode.Nil);
+        }
+        self.consume(TokenType.Semicolon, "Expect ';' after variable declaration.");
+
+        self.defineVariable(global);
+    }
+
+    private void expressionStatement() {
+        Compiler.expression(&this);
+        this.consume(TokenType.Semicolon, "Expect ';' after expression.");
+        this.emitByte(OpCode.Pop);
+    }
+
+    static void binary(Compiler* self, bool canAssign)
     {
         TokenType op = self.parser.previous.tok_type;
         ParseRule* rule = Compiler.getRule(op);
@@ -259,7 +332,7 @@ struct Compiler
         }
     }
 
-    static void literal(Compiler* self)
+    static void literal(Compiler* self, bool canAssign)
     {
         switch (self.parser.previous.tok_type)
         {
@@ -277,7 +350,7 @@ struct Compiler
         }
     }
 
-    static void unary(Compiler* self)
+    static void unary(Compiler* self, bool canAssign)
     {
         TokenType op = self.parser.previous.tok_type;
 
@@ -296,17 +369,57 @@ struct Compiler
         }
     }
 
-    static void number(Compiler* self)
+    static void number(Compiler* self, bool canAssign)
     {
         double value = parse!double(self.parser.previous.lexeme);
         self.emitConstant(Value(value));
     }
 
-    static void sstring(Compiler* self)
+    static void sstring(Compiler* self, bool canAssign)
     {
         size_t len = self.parser.previous.lexeme.length;
         ObjString* os = ObjString.fromCopyOf(self.parser.previous.lexeme[1 .. len - 1]);
         self.emitConstant(Value(cast(Obj*) os));
+    }
+
+    static void variable(Compiler* self, bool canAssign) {
+        Compiler.namedVariable(self, self.parser.previous, canAssign);
+    }
+
+    static void namedVariable(Compiler* self, Token name, bool canAssign) {
+        ubyte arg = self.identifierConstant(&name);
+        if (canAssign && self.match(TokenType.Equal)) {
+            Compiler.expression(self);
+            self.emitBytes(OpCode.SetGlobal, arg);
+        }
+        else {
+            self.emitBytes(OpCode.GetGlobal, arg);
+        }
+    }
+
+    private void printStatement() {
+        Compiler.expression(&this);
+        this.consume(TokenType.Semicolon, "Expect ';' after value.");
+        this.emitByte(OpCode.Print);
+    }
+
+    private void synchronize() {
+        this.parser.panicMode = false;
+
+        while (this.parser.current.tok_type != TokenType.EndOfFile) {
+            if (this.parser.previous.tok_type == TokenType.Semicolon) {
+                return;
+            }
+            switch (this.parser.current.tok_type) {
+                case TokenType.Class | TokenType.Fun | TokenType.Var | TokenType.For | TokenType.If
+                    | TokenType.While | TokenType.Print | TokenType.Return:
+                    return;
+                default:
+                    break; //
+            }
+
+            this.advance();
+        }
     }
 
     private void errorAtCurrent(const string message)

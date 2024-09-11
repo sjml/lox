@@ -38,6 +38,14 @@ size_t disassembleInstruction(Chunk* chunk, size_t offset)
         return simpleInstruction("OP_TRUE", offset);
     case OpCode.False:
         return simpleInstruction("OP_FALSE", offset);
+    case OpCode.Pop:
+        return simpleInstruction("OP_POP", offset);
+    case OpCode.GetGlobal:
+        return constantInstruction("OP_GET_GLOBAL", chunk, offset);
+    case OpCode.DefineGlobal:
+        return constantInstruction("OP_DEFINE_GLOBAL", chunk, offset);
+    case OpCode.SetGlobal:
+        return constantInstruction("OP_SET_GLOBAL", chunk, offset);
     case OpCode.Equal:
         return simpleInstruction("OP_EQUAL", offset);
     case OpCode.Greater:
@@ -56,6 +64,8 @@ size_t disassembleInstruction(Chunk* chunk, size_t offset)
         return simpleInstruction("OP_NOT", offset);
     case OpCode.Negate:
         return simpleInstruction("OP_NEGATE", offset);
+    case OpCode.Print:
+        return simpleInstruction("OP_PRINT", offset);
     case OpCode.Return:
         return simpleInstruction("OP_RETURN", offset);
     default:
