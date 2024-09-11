@@ -1,9 +1,2 @@
 /.vscode/
 /test/tmp/
-
-__pycache__/
-
-/zlox/.zig-cache
-/zlox/zig-out
-
-/rlox/target
