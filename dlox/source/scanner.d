@@ -52,9 +52,8 @@ enum TokenType {
 }
 
 struct Token {
-    TokenType type;
-    immutable(char)* start;
-    size_t length;
+    TokenType tok_type;
+    string lexeme;
     size_t line;
 }
 
@@ -267,18 +266,16 @@ struct Scanner {
 
     private Token makeToken(TokenType type) {
         Token tok;
-        tok.type = type;
-        tok.start = this.start;
-        tok.length = this.current - this.start;
+        tok.tok_type = type;
+        tok.lexeme = this.start[0..(this.current - this.start)];
         tok.line = this.line;
         return tok;
     }
 
     private Token errorToken(string message) {
         Token tok;
-        tok.type = TokenType.Error;
-        tok.start = message.ptr;
-        tok.length = message.length;
+        tok.tok_type = TokenType.Error;
+        tok.lexeme = message;
         tok.line = this.line;
         return tok;
     }

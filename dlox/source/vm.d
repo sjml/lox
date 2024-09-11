@@ -44,7 +44,22 @@ struct VM {
     }
 
     static InterpretResult interpret(string source) {
-        VM.instance.compiler.compile(source);
+        Chunk c;
+
+        if (!VM.instance.compiler.compile(source, &c)) {
+            c.free();
+            return InterpretResult.CompileError;
+        }
+
+        VM.instance.chunk = &c;
+        VM.instance.ip = VM.instance.chunk.code.ptr;
+
+        InterpretResult res = VM.instance.run();
+
+        c.free();
+        VM.instance.chunk = null;
+        VM.instance.ip = null;
+
         return InterpretResult.Ok;
     }
 

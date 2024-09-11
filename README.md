@@ -17,11 +17,22 @@ There are many like it but this one is mine.
 (Made and tested with Python 3.12.5.)
 
 
+## dlox
+
+A [D](https://dlang.org/) implementation of Part III. This is my first code in D that is anything beyond the most trivial "Hello world" kinda stuff. My (possibly wrong) perception is that D doesn't seem to have a ton of traction these days — too close to C to replace it, not memory-safe enough to compete with Rust... at the same time, it's super familiar to all kinds of programmers so maybe its easier entry is a feature. 
+
+In any case, its similarity to C works to my advantage here — it lets me do low-level memory manipulation like C, but the semantics are _juuuuuust_ different enough that I have to think as I write code instead of just mindlessly copying. So hey, there we go. 
+
+(Made and tested with LDC 1.39.0)
+
+
 ## rlox
 
-A Rust implementation of Part III. I initially tried with Zig (see [zlox](#zlox)) but eventually came back to Rust, which I know a know a bit better from re-implementing [my paper-writing tool in it](https://github.com/sjml/paper). 
+A [Rust](https://www.rust-lang.org/) implementation of Part III. I initially tried with Zig (see [zlox](#zlox)) but eventually came back to Rust, which I know a know a bit better from re-implementing [my paper-writing tool in it](https://github.com/sjml/paper). 
 
 (Made and tested with Rust 1.81.0.)
+
+Abandoned this one as I approached the same area I was forced to abandon the Zig implementation. I was getting to the point where the book was doing very C-things (struct polymorphism, downcasting with pointer arithmetic). In researching the best way to accomplish these things in Rust I found other people who had built Lox interpreters in Rust and they faced a choice of either (a) bad performance, very close to the Java AST version or (b) using lots of `unsafe` calls. I didn't like either of those choices! So I bailed, again. 
 
 
 ## zlox

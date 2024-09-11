@@ -31,9 +31,9 @@ struct Chunk {
         this.count += 1;
     }
 
-    ubyte addConstant(Value val) {
+    size_t addConstant(Value val) {
         this.constants.add(val);
-        return to!byte(this.constants.count - 1);
+        return this.constants.count - 1;
     }
 
     void free() {
