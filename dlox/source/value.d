@@ -1,97 +1,139 @@
 module value;
 
 import std.stdio;
+import std.algorithm.comparison : equal;
 
 import util : growCapacity;
+import lobj : Obj, ObjType, ObjString;
 
-enum ValueType {
+enum ValueType
+{
     Boolean,
     Nil,
     Number,
+    Obj,
 }
 
-struct Value {
+struct Value
+{
     ValueType val_type;
     union
     {
         bool boolean;
         double number;
+        Obj* obj;
     }
 
-    this(bool b) {
+    this(bool b)
+    {
         this.val_type = ValueType.Boolean;
         this.boolean = b;
     }
 
-    this(double n) {
+    this(double n)
+    {
         this.val_type = ValueType.Number;
         this.number = n;
     }
 
-    static Value nil() {
+    this(Obj* o)
+    {
+        this.val_type = ValueType.Obj;
+        this.obj = o;
+    }
+
+    static Value nil()
+    {
         Value v = Value();
         v.val_type = ValueType.Nil;
         return v;
     }
 
-    bool equals(Value other) {
-        if (this.val_type != other.val_type) {
+    bool equals(Value other)
+    {
+        if (this.val_type != other.val_type)
+        {
             return false;
         }
-        switch (this.val_type) {
-            case ValueType.Boolean:
-                return this.boolean == other.boolean;
-            case ValueType.Nil:
-                return true;
-            case ValueType.Number:
-                return this.number == other.number;
-            default:
-                assert(false); // unreachable
+        switch (this.val_type)
+        {
+        case ValueType.Boolean:
+            return this.boolean == other.boolean;
+        case ValueType.Nil:
+            return true;
+        case ValueType.Number:
+            return this.number == other.number;
+        case ValueType.Obj:
+            ObjString* a = this.obj.asString();
+            ObjString* b = this.obj.asString();
+            if (a.length != b.length)
+            {
+                return false;
+            }
+            return a[0 .. a.length].equal(b[0 .. b.length]);
+        default:
+            assert(false); // unreachable
         }
     }
 
-    bool isFalsey() {
-        if (this.val_type == ValueType.Nil) {
+    bool isFalsey()
+    {
+        if (this.val_type == ValueType.Nil)
+        {
             return true;
         }
-        if (this.val_type == ValueType.Boolean) {
+        if (this.val_type == ValueType.Boolean)
+        {
             return !this.boolean;
         }
         return false;
     }
+
+    bool isObjType(ObjType ot)
+    {
+        return this.val_type == ValueType.Obj && this.obj.obj_type == ot;
+    }
 }
 
-struct ValueArray {
+struct ValueArray
+{
     size_t count;
     Value[] values;
 
-    void add(Value val) {
-        if (this.values.length < this.count + 1) {
+    void add(Value val)
+    {
+        if (this.values.length < this.count + 1)
+        {
             this.values.length = growCapacity(this.values.length);
         }
         this.values[this.count] = val;
         this.count += 1;
     }
 
-    void free() {
+    void free()
+    {
         this.values.length = 0;
         this.count = 0;
     }
 }
 
-void printValue(Value val) {
-    switch (val.val_type) {
-        case ValueType.Boolean:
-            writef(val.boolean ? "true" : "false");
-            break;
-        case ValueType.Nil:
-            writef("nil");
-            break;
-        case ValueType.Number:
-            writef("%g", val.number);
-            break;
-        default:
-            assert(false); // unreachable
+void printValue(Value val)
+{
+    switch (val.val_type)
+    {
+    case ValueType.Boolean:
+        writef(val.boolean ? "true" : "false");
+        break;
+    case ValueType.Nil:
+        writef("nil");
+        break;
+    case ValueType.Number:
+        writef("%g", val.number);
+        break;
+    case ValueType.Obj:
+        val.obj.print();
+        break;
+    default:
+        assert(false); // unreachable
     }
 }
-

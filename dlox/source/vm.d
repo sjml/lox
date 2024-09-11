@@ -5,15 +5,18 @@ import std.stdio;
 import chunk : Chunk, OpCode;
 import compiler : Compiler;
 import value : Value, ValueType, printValue;
+import lobj : ObjType, Obj, ObjString;
 import lox_debug;
 
-enum InterpretResult {
+enum InterpretResult
+{
     Ok,
     CompileError,
     RuntimeError,
 }
 
-enum BinaryOperator {
+enum BinaryOperator
+{
     Add,
     Subtract,
     Multiply,
@@ -24,28 +27,46 @@ enum BinaryOperator {
 
 static const STACK_MAX = 256;
 
-struct VM {
+struct VM
+{
     Chunk* chunk = null;
     private ubyte* ip = null;
     private Value[STACK_MAX] stack;
     private Value* stackTop = null;
+    Obj* objects = null;
     private Compiler compiler;
-    private static VM* instance = null;
+    static VM* instance = null;
 
-    static void setup() {
+    static void setup()
+    {
         VM.instance = new VM();
         VM.instance.resetStack();
     }
 
-    static void teardown() {
+    static void teardown()
+    {
+        VM.instance.freeObjects();
         VM.instance = null;
     }
 
-    private void resetStack() {
+    private void resetStack()
+    {
         this.stackTop = stack.ptr;
     }
 
-    private void runtimeError(T...)(T args) {
+    private void freeObjects()
+    {
+        Obj* o = this.objects;
+        while (o != null)
+        {
+            Obj* next = o.next;
+            o.free();
+            o = next;
+        }
+    }
+
+    private void runtimeError(T...)(T args)
+    {
         writefln(args);
 
         size_t inst = this.ip - this.chunk.code.ptr - 1;
@@ -54,10 +75,12 @@ struct VM {
         this.resetStack();
     }
 
-    static InterpretResult interpret(string source) {
+    static InterpretResult interpret(string source)
+    {
         Chunk c;
 
-        if (!VM.instance.compiler.compile(source, &c)) {
+        if (!VM.instance.compiler.compile(source, &c))
+        {
             c.free();
             return InterpretResult.CompileError;
         }
@@ -74,58 +97,81 @@ struct VM {
         return InterpretResult.Ok;
     }
 
-    pragma(inline)
-    private ubyte readByte() {
+    pragma(inline) private ubyte readByte()
+    {
         return *this.ip++;
     }
 
-    pragma(inline)
-    private Value readConstant() {
+    pragma(inline) private Value readConstant()
+    {
         return this.chunk.constants.values[this.readByte];
     }
 
-    pragma(inline)
-    private bool binaryOperation(BinaryOperator op) {
-        if (
-               (!this.peek(0).val_type == ValueType.Number)
-            || (!this.peek(1).val_type == ValueType.Number)
-        ) {
+    pragma(inline) private bool binaryNumericOperation(BinaryOperator op)
+    {
+        if ((!this.peek(0).val_type == ValueType.Number) || (!this.peek(1)
+                .val_type == ValueType.Number))
+        {
             this.runtimeError("Operands must be numbers.");
             return false;
         }
 
         double b = this.pop().number;
         double a = this.pop().number;
-        switch (op) {
-            case BinaryOperator.GreaterThan:
-                this.push(Value(a > b));
-                break;
-            case BinaryOperator.LessThan:
-                this.push(Value(a < b));
-                break;
-            case BinaryOperator.Add:
-                this.push(Value(a + b));
-                break;
-            case BinaryOperator.Subtract:
-                this.push(Value(a - b));
-                break;
-            case BinaryOperator.Multiply:
-                this.push(Value(a * b));
-                break;
-            case BinaryOperator.Divide:
-                this.push(Value(a / b));
-                break;
-            default:
-                assert(false); // unreachable
+        switch (op)
+        {
+        case BinaryOperator.GreaterThan:
+            this.push(Value(a > b));
+            break;
+        case BinaryOperator.LessThan:
+            this.push(Value(a < b));
+            break;
+        case BinaryOperator.Add:
+            this.push(Value(a + b));
+            break;
+        case BinaryOperator.Subtract:
+            this.push(Value(a - b));
+            break;
+        case BinaryOperator.Multiply:
+            this.push(Value(a * b));
+            break;
+        case BinaryOperator.Divide:
+            this.push(Value(a / b));
+            break;
+        default:
+            assert(false); // unreachable
         }
         return true;
     }
 
-    private InterpretResult run() {
-        while (true) {
-            version(DebugTraceExecution) {
+    pragma(inline) private void concatenateStrings()
+    {
+        ObjString* b = pop().obj.asString();
+        ObjString* a = pop().obj.asString();
+
+        ObjString* newStr = ObjString.allocateString(a.length + b.length);
+        for (size_t idx = 0; idx < a.length; idx++)
+        {
+            newStr.chars[idx] = a.chars[idx];
+        }
+        for (size_t idx = 0; idx < b.length; idx++)
+        {
+            newStr.chars[idx + a.length] = b.chars[idx];
+        }
+        newStr.chars[a.length + b.length] = '\0';
+
+        push(Value(cast(Obj*) newStr));
+    }
+
+    private InterpretResult run()
+    {
+        while (true)
+        {
+            version (DebugTraceExecution)
+            {
                 writef("          ");
-                for (Value* slot = this.stack.ptr; slot < this.stackTop; slot++) {
+                for (Value* slot = this.stack.ptr; slot < this.stackTop; slot++)
+                {
                     writef("[ ");
                     printValue(*slot);
                     writef(" ]");
@@ -134,81 +180,103 @@ struct VM {
                 lox_debug.disassembleInstruction(this.chunk, this.ip - this.chunk.code.ptr);
             }
             ubyte inst;
-            switch (inst = this.readByte) {
-                case OpCode.Constant:
-                    Value constant = this.readConstant();
-                    this.push(constant);
-                    break;
-                case OpCode.Nil: this.push(Value.nil()); break;
-                case OpCode.True: this.push(Value(true)); break;
-                case OpCode.False: this.push(Value(false)); break;
-                case OpCode.Equal:
-                    Value b = this.pop();
-                    Value a = this.pop();
-                    push(Value(a.equals(b)));
-                    break;
-                case OpCode.Greater:
-                    if (!this.binaryOperation(BinaryOperator.GreaterThan)) {
-                        return InterpretResult.RuntimeError;
-                    }
-                    break;
-                case OpCode.Less:
-                    if (!this.binaryOperation(BinaryOperator.LessThan)) {
-                        return InterpretResult.RuntimeError;
-                    }
-                    break;
-                case OpCode.Add:
-                    if (!this.binaryOperation(BinaryOperator.Add)) {
-                        return InterpretResult.RuntimeError;
-                    }
-                    break;
-                case OpCode.Subtract:
-                    if (!this.binaryOperation(BinaryOperator.Subtract)) {
-                        return InterpretResult.RuntimeError;
-                    }
-                    break;
-                case OpCode.Multiply:
-                    if (!this.binaryOperation(BinaryOperator.Multiply)) {
-                        return InterpretResult.RuntimeError;
-                    }
-                    break;
-                case OpCode.Divide:
-                    if (!this.binaryOperation(BinaryOperator.Divide)) {
-                        return InterpretResult.RuntimeError;
-                    }
-                    break;
-                case OpCode.Not:
-                    this.push(Value(pop().isFalsey()));
-                    break;
-                case OpCode.Negate:
-                    if (!this.peek(0).val_type == ValueType.Number) {
-                        this.runtimeError("Operand must be a number.");
-                        return InterpretResult.RuntimeError;
-                    }
-                    this.push(Value(-this.pop().number));
-                    break;
-                case OpCode.Return:
-                    printValue(this.pop());
-                    writefln("");
-                    return InterpretResult.Ok;
-                default:
-                    stderr.writefln("ERROR: Unknown opcode '%d'", inst);
-                    break;
+            switch (inst = this.readByte)
+            {
+            case OpCode.Constant:
+                Value constant = this.readConstant();
+                this.push(constant);
+                break;
+            case OpCode.Nil:
+                this.push(Value.nil());
+                break;
+            case OpCode.True:
+                this.push(Value(true));
+                break;
+            case OpCode.False:
+                this.push(Value(false));
+                break;
+            case OpCode.Equal:
+                Value b = this.pop();
+                Value a = this.pop();
+                push(Value(a.equals(b)));
+                break;
+            case OpCode.Greater:
+                if (!this.binaryNumericOperation(BinaryOperator.GreaterThan))
+                {
+                    return InterpretResult.RuntimeError;
+                }
+                break;
+            case OpCode.Less:
+                if (!this.binaryNumericOperation(BinaryOperator.LessThan))
+                {
+                    return InterpretResult.RuntimeError;
+                }
+                break;
+            case OpCode.Add:
+                if (this.peek(0).isObjType(ObjType.String)
+                        && (this.peek(1).isObjType(ObjType.String)))
+                {
+                    this.concatenateStrings();
+                }
+                else if (!this.binaryNumericOperation(BinaryOperator.Add))
+                {
+                    return InterpretResult.RuntimeError;
+                }
+                break;
+            case OpCode.Subtract:
+                if (!this.binaryNumericOperation(BinaryOperator.Subtract))
+                {
+                    return InterpretResult.RuntimeError;
+                }
+                break;
+            case OpCode.Multiply:
+                if (!this.binaryNumericOperation(BinaryOperator.Multiply))
+                {
+                    return InterpretResult.RuntimeError;
+                }
+                break;
+            case OpCode.Divide:
+                if (!this.binaryNumericOperation(BinaryOperator.Divide))
+                {
+                    return InterpretResult.RuntimeError;
+                }
+                break;
+            case OpCode.Not:
+                this.push(Value(pop().isFalsey()));
+                break;
+            case OpCode.Negate:
+                if (!this.peek(0).val_type == ValueType.Number)
+                {
+                    this.runtimeError("Operand must be a number.");
+                    return InterpretResult.RuntimeError;
+                }
+                this.push(Value(-this.pop().number));
+                break;
+            case OpCode.Return:
+                printValue(this.pop());
+                writefln("");
+                return InterpretResult.Ok;
+            default:
+                stderr.writefln("ERROR: Unknown opcode '%d'", inst);
+                break;
             }
         }
     }
 
-    private void push(Value val) {
+    private void push(Value val)
+    {
         *this.stackTop = val;
         this.stackTop++;
     }
 
-    private Value pop() {
+    private Value pop()
+    {
         this.stackTop--;
         return *this.stackTop;
     }
 
-    private Value peek(int distance) {
+    private Value peek(int distance)
+    {
         return this.stackTop[-1 - distance];
     }
 }

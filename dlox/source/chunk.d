@@ -5,7 +5,8 @@ import std.conv;
 import value : Value, ValueArray;
 import util : growCapacity;
 
-enum OpCode {
+enum OpCode
+{
     Constant,
     Nil,
     True,
@@ -22,14 +23,17 @@ enum OpCode {
     Return,
 }
 
-struct Chunk {
+struct Chunk
+{
     size_t count = 0;
     ubyte[] code;
     size_t[] line_numbers;
     ValueArray constants;
 
-    void write(ubyte data, size_t line) {
-        if (this.code.length < this.count + 1) {
+    void write(ubyte data, size_t line)
+    {
+        if (this.code.length < this.count + 1)
+        {
             this.code.length = growCapacity(this.code.length);
             this.line_numbers.length = this.code.length;
         }
@@ -38,12 +42,14 @@ struct Chunk {
         this.count += 1;
     }
 
-    size_t addConstant(Value val) {
+    size_t addConstant(Value val)
+    {
         this.constants.add(val);
         return this.constants.count - 1;
     }
 
-    void free() {
+    void free()
+    {
         this.code.length = 0;
         this.line_numbers.length = 0;
         this.count = 0;
