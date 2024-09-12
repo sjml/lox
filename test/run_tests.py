@@ -5,7 +5,7 @@ import subprocess
 ROOT_PATH = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
 TMP_DIR = os.path.join(ROOT_PATH, "test", "tmp")
 BOOK_REPO_PATH = os.path.join(TMP_DIR, "craftinginterpreters")
-RELATIVE_JLOX_PATH = "../../../plox.sh"
+RELATIVE_JLOX_PATH = "../../../plox/plox"
 RELATIVE_CLOX_PATH = "../../../dlox/dlox"
 
 JLOX_TESTS = {
@@ -46,8 +46,11 @@ try:
 except:
     sys.stderr.write("Chapter number has to be integer!\n")
     sys.exit(1)
+
+env = os.environ.copy()
 if chapter in JLOX_TESTS:
     tester = RELATIVE_JLOX_PATH
+    env["PYTHONPATH"] = ROOT_PATH
     tester_name = "jlox"
     suite = JLOX_TESTS[chapter]
 elif chapter in CLOX_TESTS:
@@ -87,6 +90,6 @@ print("Installing testing dependencies...")
 result = subprocess.run(["make", "get"], stdout=open(os.devnull, 'wb'))
 
 print(f"Running {tester_name} tests for chapter {chapter}...")
-res = subprocess.run(["dart", "./tool/bin/test.dart", suite, "--interpreter", tester])
+res = subprocess.run(["dart", "./tool/bin/test.dart", suite, "--interpreter", tester], env=env)
 if (res.returncode != 0):
     sys.exit(res.returncode)
