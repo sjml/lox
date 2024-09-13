@@ -18,7 +18,7 @@ class Interpreter(ast.expr.ExprVisitor, ast.stmt.StmtVisitor):
             return 0
 
         def call(self, interpreter: Interpreter, arguments: list[object]) -> object:
-            return time.time_ns() / 1000000.0
+            return time.time()
 
         def __str__(self):
             return "<native fn>"
