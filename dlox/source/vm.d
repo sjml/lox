@@ -1,12 +1,16 @@
 module vm;
 
+import std.conv;
 import std.stdio;
 import std.string;
+import std.conv;
+
+import core.stdc.time;
 
 import chunk : Chunk, OpCode;
-import compiler : Compiler;
+import compiler : Compiler, FunctionType;
 import value : Value, ValueType, printValue;
-import lobj : ObjType, Obj, ObjString;
+import lobj : ObjType, Obj, ObjString, ObjFunction, ObjNative, NativeFn;
 import table : Table;
 import lox_debug;
 
@@ -27,12 +31,25 @@ enum BinaryOperator
     LessThan,
 }
 
-static const STACK_MAX = 256;
+static const FRAMES_MAX = 64;
+static const STACK_MAX = FRAMES_MAX * (ubyte.max + 1);
+
+struct CallFrame
+{
+    ObjFunction* fn;
+    ubyte* ip;
+    Value* slots;
+}
+
+static Value clockNative(int argCount, Value* args)
+{
+    return Value(to!double(clock()) / to!double(CLOCKS_PER_SEC));
+}
 
 struct VM
 {
-    Chunk* chunk = null;
-    private ubyte* ip = null;
+    private CallFrame[FRAMES_MAX] frames;
+    private size_t frameCount;
     private Value[STACK_MAX] stack;
     private Value* stackTop = null;
     Table globals;
@@ -44,7 +61,10 @@ struct VM
     static void setup()
     {
         VM.instance = new VM();
+        VM.instance.compiler = Compiler(FunctionType.Script, null);
         VM.instance.resetStack();
+
+        VM.instance.defineNative("clock", &clockNative);
     }
 
     static void teardown()
@@ -58,6 +78,7 @@ struct VM
     private void resetStack()
     {
         this.stackTop = stack.ptr;
+        this.frameCount = 0;
     }
 
     private void freeObjects()
@@ -75,53 +96,45 @@ struct VM
     {
         stderr.writefln(args);
 
-        size_t inst = this.ip - this.chunk.code.ptr - 1;
-        size_t line = this.chunk.lineNumbers[inst];
-        stderr.writefln("[line %d] in script", line);
+        for (int i = to!int(this.frameCount) - 1; i >= 0; i--)
+        {
+            CallFrame* frame = &this.frames[i];
+            ObjFunction* fn = frame.fn;
+            size_t inst = frame.ip - &fn.c.code[0] - 1;
+            stderr.writef("[line %d] in ", fn.c.lineNumbers[inst]);
+            if (fn.name == null)
+            {
+                stderr.writefln("script");
+            }
+            else
+            {
+                stderr.writefln("%s()", fn.name.chars);
+            }
+        }
+
         this.resetStack();
+    }
+
+    private void defineNative(string name, NativeFn fn)
+    {
+        this.push(Value(&ObjString.fromCopyOf(name).obj));
+        this.push(Value(&ObjNative.create(fn).obj));
+        this.globals.set(this.stack[0].obj.asString(), this.stack[1]);
+        this.pop();
+        this.pop();
     }
 
     static InterpretResult interpret(string source)
     {
-        Chunk c;
-
-        if (!VM.instance.compiler.compile(source, &c))
+        ObjFunction* cFn = VM.instance.compiler.compile(source);
+        if (cFn == null)
         {
-            c.free();
             return InterpretResult.CompileError;
         }
+        VM.instance.push(Value(&cFn.obj));
+        bool _ = VM.instance.call(cFn, 0);
 
-        VM.instance.chunk = &c;
-        VM.instance.ip = VM.instance.chunk.code.ptr;
-
-        InterpretResult res = VM.instance.run();
-
-        c.free();
-        VM.instance.chunk = null;
-        VM.instance.ip = null;
-
-        return res;
-    }
-
-    pragma(inline) private ubyte readByte()
-    {
-        return *this.ip++;
-    }
-
-    pragma(inline) private ushort readShort()
-    {
-        this.ip += 2;
-        return cast(ushort)(this.ip[-2] << 8 | this.ip[-1]);
-    }
-
-    pragma(inline) private Value readConstant()
-    {
-        return this.chunk.constants.values[this.readByte];
-    }
-
-    pragma(inline) private ObjString* readString()
-    {
-        return this.readConstant().obj.asString();
+        return VM.instance.run();
     }
 
     pragma(inline) private bool binaryNumericOperation(BinaryOperator op)
@@ -184,6 +197,30 @@ struct VM
 
     private InterpretResult run()
     {
+        CallFrame* frame = &this.frames[this.frameCount - 1];
+
+        pragma(inline) ubyte readByte()
+        {
+            return *frame.ip++;
+        }
+
+        pragma(inline) ushort readShort()
+        {
+            frame.ip += 2;
+            return cast(ushort)(frame.ip[-2] << 8 | frame.ip[-1]);
+        }
+
+        pragma(inline) Value readConstant()
+        {
+            Chunk c = frame.fn.c;
+            return frame.fn.c.constants.values[readByte()];
+        }
+
+        pragma(inline) ObjString* readString()
+        {
+            return readConstant().obj.asString();
+        }
+
         while (true)
         {
             version (DebugTraceExecution)
@@ -196,13 +233,13 @@ struct VM
                     writef(" ]");
                 }
                 writefln("");
-                lox_debug.disassembleInstruction(this.chunk, this.ip - this.chunk.code.ptr);
+                lox_debug.disassembleInstruction(&frame.fn.c, frame.ip - frame.fn.c.code.ptr);
             }
             ubyte inst;
-            switch (inst = this.readByte)
+            switch (inst = readByte())
             {
             case OpCode.Constant:
-                Value constant = this.readConstant();
+                Value constant = readConstant();
                 this.push(constant);
                 break;
             case OpCode.Nil:
@@ -218,15 +255,15 @@ struct VM
                 this.pop();
                 break;
             case OpCode.GetLocal:
-                ubyte slot = this.readByte();
-                this.push(VM.instance.stack[slot]);
+                ubyte slot = readByte();
+                this.push(frame.slots[slot]);
                 break;
             case OpCode.SetLocal:
-                ubyte slot = this.readByte();
-                VM.instance.stack[slot] = this.peek(0);
+                ubyte slot = readByte();
+                frame.slots[slot] = this.peek(0);
                 break;
             case OpCode.GetGlobal:
-                ObjString* name = this.readString();
+                ObjString* name = readString();
                 Value val;
                 if (!this.globals.get(name, &val))
                 {
@@ -236,12 +273,12 @@ struct VM
                 this.push(val);
                 break;
             case OpCode.DefineGlobal:
-                ObjString* name = this.readString();
+                ObjString* name = readString();
                 this.globals.set(name, this.peek(0));
                 this.pop();
                 break;
             case OpCode.SetGlobal:
-                ObjString* name = this.readString();
+                ObjString* name = readString();
                 if (this.globals.set(name, this.peek(0)))
                 {
                     this.globals.remove(name);
@@ -319,22 +356,40 @@ struct VM
                 writefln("");
                 break;
             case OpCode.Jump:
-                ushort offset = this.readShort();
-                this.ip += offset;
+                ushort offset = readShort();
+                frame.ip += offset;
                 break;
             case OpCode.JumpIfFalse:
-                ushort offset = this.readShort();
+                ushort offset = readShort();
                 if (this.peek(0).isFalsey())
                 {
-                    this.ip += offset;
+                    frame.ip += offset;
                 }
                 break;
             case OpCode.Loop:
-                ushort offset = this.readShort();
-                this.ip -= offset;
+                ushort offset = readShort();
+                frame.ip -= offset;
+                break;
+            case OpCode.Call:
+                ubyte argCount = readByte();
+                if (!this.callValue(this.peek(argCount), argCount))
+                {
+                    return InterpretResult.RuntimeError;
+                }
+                frame = &this.frames[this.frameCount - 1];
                 break;
             case OpCode.Return:
-                return InterpretResult.Ok;
+                Value result = this.pop();
+                this.frameCount -= 1;
+                if (this.frameCount == 0)
+                {
+                    this.pop();
+                    return InterpretResult.Ok;
+                }
+                this.stackTop = frame.slots;
+                this.push(result);
+                frame = &this.frames[this.frameCount - 1];
+                break;
             default:
                 stderr.writefln("ERROR: Unknown opcode '%d'", inst);
                 break;
@@ -357,5 +412,55 @@ struct VM
     private Value peek(int distance)
     {
         return this.stackTop[-1 - distance];
+    }
+
+    private bool callValue(Value callee, int argCount)
+    {
+        if (callee.valType == ValueType.Obj)
+        {
+            Obj* callObj = callee.obj;
+            auto s = callObj.asString();
+            auto n = callObj.asNative();
+            auto f = callObj.asFunction();
+            switch (callObj.objType)
+            {
+            case ObjType.Function:
+                ObjFunction* callFnObj = callObj.asFunction();
+                return call(callFnObj, argCount);
+                break;
+            case ObjType.Native:
+                ObjNative* nativeObj = callObj.asNative();
+                NativeFn native = nativeObj.fn;
+                Value result = native(argCount, this.stackTop - argCount);
+                this.stackTop -= argCount + 1;
+                this.push(result);
+                return true;
+            default:
+                break;
+            }
+        }
+        this.runtimeError("Can only call functions and classes.");
+        return false;
+    }
+
+    private bool call(ObjFunction* fn, int argCount)
+    {
+        if (argCount != fn.arity)
+        {
+            this.runtimeError("Expected %d arguments but got %d.", fn.arity, argCount);
+            return false;
+        }
+
+        if (this.frameCount == FRAMES_MAX)
+        {
+            this.runtimeError("Stack overflow.");
+            return false;
+        }
+
+        CallFrame* frame = &this.frames[this.frameCount++];
+        frame.fn = fn;
+        frame.ip = &fn.c.code[0];
+        frame.slots = this.stackTop - argCount - 1;
+        return true;
     }
 }

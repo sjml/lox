@@ -6,7 +6,7 @@ import std.conv;
 import chunk : Chunk, OpCode;
 import scanner : Scanner, Token, TokenType;
 import value : Value;
-import lobj : Obj, ObjString;
+import lobj : Obj, ObjString, ObjFunction;
 import lox_debug;
 
 struct Parser
@@ -43,7 +43,7 @@ struct ParseRule
 
 // dfmt off
 ParseRule[] rules = [
-    /* LeftParen    */ ParseRule(&Compiler.grouping, null,             Precedence.None        ),
+    /* LeftParen    */ ParseRule(&Compiler.grouping, &Compiler.call,   Precedence.Call        ),
     /* RightParen   */ ParseRule(null,               null,             Precedence.None        ),
     /* LeftBrace    */ ParseRule(null,               null,             Precedence.None        ),
     /* RightBrace   */ ParseRule(null,               null,             Precedence.None        ),
@@ -92,33 +92,67 @@ struct Local
     int depth;
 }
 
+enum FunctionType
+{
+    Function,
+    Script,
+}
+
 struct Compiler
 {
-    Scanner scanner;
-    Parser parser;
-    Chunk* compilingChunk = null;
+    Compiler* enclosing = null;
+
+    Scanner* scanner;
+    Parser* parser;
+
+    ObjFunction* fn = null;
+    FunctionType fnType;
 
     Local[ubyte.max + 1] locals;
     size_t localCount = 0;
     int scopeDepth = 0;
 
-    bool compile(string source, Chunk* c)
+    this(FunctionType ftype, Compiler* enc)
+    {
+        if (enc == null)
+        {
+            this.scanner = new Scanner();
+            this.parser = new Parser();
+        }
+        else
+        {
+            this.scanner = enc.scanner;
+            this.parser = enc.parser;
+        }
+        this.enclosing = enc;
+        this.fnType = ftype;
+        this.fn = ObjFunction.create();
+        if (ftype != FunctionType.Script)
+        {
+            this.fn.name = ObjString.fromCopyOf(parser.previous.lexeme);
+        }
+
+        Local* local = &this.locals[this.localCount++];
+        local.depth = 0;
+        local.name.lexeme = "";
+    }
+
+    ObjFunction* compile(string source)
     {
         scanner.setup(source);
-        this.compilingChunk = c;
 
         this.advance();
         while (!this.match(TokenType.EndOfFile))
         {
             Compiler.declaration(&this);
         }
-        this.end();
-        return !this.parser.hadError;
+        ObjFunction* eFn = this.end();
+        return this.parser.hadError ? null : eFn;
     }
 
     private Chunk* currentChunk()
     {
-        return compilingChunk;
+        return &this.fn.c;
     }
 
     private void advance()
@@ -207,6 +241,7 @@ struct Compiler
 
     private void emitReturn()
     {
+        this.emitByte(OpCode.Nil);
         this.emitByte(OpCode.Return);
     }
 
@@ -215,16 +250,19 @@ struct Compiler
         this.emitBytes(OpCode.Constant, this.makeConstant(val));
     }
 
-    private void end()
+    private ObjFunction* end()
     {
         this.emitReturn();
+        ObjFunction* retFn = this.fn;
         version (DebugPrintCode)
         {
             if (!this.parser.hadError)
             {
-                lox_debug.disassembleChunk(this.currentChunk(), "code");
+                string name = retFn.name != null ? to!string(retFn.name.chars) : "<script>";
+                lox_debug.disassembleChunk(this.currentChunk(), name);
             }
         }
+        return retFn;
     }
 
     private void beginScope()
@@ -348,6 +386,10 @@ struct Compiler
 
     private void markInitialized()
     {
+        if (this.scopeDepth == 0)
+        {
+            return;
+        }
         this.locals[this.localCount - 1].depth = this.scopeDepth;
     }
 
@@ -398,6 +440,43 @@ struct Compiler
         return &rules[tokType];
     }
 
+    private void funDeclaration()
+    {
+        ubyte globalIdx = this.parseVariable("Expect function name.");
+        this.markInitialized();
+        this.fun(FunctionType.Function);
+        this.defineVariable(globalIdx);
+    }
+
+    private void fun(FunctionType fnType)
+    {
+        Compiler compiler = Compiler(fnType, &this);
+
+        compiler.beginScope();
+
+        compiler.consume(TokenType.LeftParen, "Expect '(' after function name.");
+        if (!compiler.check(TokenType.RightParen))
+        {
+            do
+            {
+                compiler.fn.arity += 1;
+                if (compiler.fn.arity > 255)
+                {
+                    compiler.errorAtCurrent("Can't have more than 255 parameters.");
+                }
+                ubyte constIdx = compiler.parseVariable("Expect parameter name.");
+                compiler.defineVariable(constIdx);
+            }
+            while (compiler.match(TokenType.Comma));
+        }
+        compiler.consume(TokenType.RightParen, "Expect ')' after parameters.");
+        compiler.consume(TokenType.LeftBrace, "Expect '{' before function body.");
+        compiler.block();
+
+        ObjFunction* emFn = compiler.end();
+        this.emitBytes(OpCode.Constant, this.makeConstant(Value(&emFn.obj)));
+    }
+
     private void block()
     {
         while (!this.check(TokenType.RightBrace) && !this.check(TokenType.EndOfFile))
@@ -409,7 +488,11 @@ struct Compiler
 
     static void declaration(Compiler* self)
     {
-        if (self.match(TokenType.Var))
+        if (self.match(TokenType.Fun))
+        {
+            self.funDeclaration();
+        }
+        else if (self.match(TokenType.Var))
         {
             Compiler.varDeclaration(self);
         }
@@ -447,6 +530,10 @@ struct Compiler
             self.beginScope();
             self.block();
             self.endScope();
+        }
+        else if (self.match(TokenType.Return))
+        {
+            self.returnStatement();
         }
         else
         {
@@ -507,6 +594,32 @@ struct Compiler
             Compiler.statement(&this);
         }
         this.patchJump(elseJump);
+    }
+
+    static void call(Compiler* self, bool canAssign)
+    {
+        ubyte argCount = self.argumentList();
+        self.emitBytes(OpCode.Call, argCount);
+    }
+
+    private ubyte argumentList()
+    {
+        ubyte argCount = 0;
+        if (!this.check(TokenType.RightParen))
+        {
+            do
+            {
+                Compiler.expression(&this);
+                if (argCount == 255)
+                {
+                    this.error("Can't have more than 255 arguments.");
+                }
+                argCount += 1;
+            }
+            while (this.match(TokenType.Comma));
+        }
+        this.consume(TokenType.RightParen, "Expect ')' after arguments.");
+        return argCount;
     }
 
     static void binary(Compiler* self, bool canAssign)
@@ -591,7 +704,7 @@ struct Compiler
 
     static void number(Compiler* self, bool canAssign)
     {
-        double value = parse!double(self.parser.previous.lexeme);
+        double value = to!double(self.parser.previous.lexeme);
         self.emitConstant(Value(value));
     }
 
@@ -707,6 +820,24 @@ struct Compiler
         }
 
         this.endScope();
+    }
+
+    private void returnStatement()
+    {
+        if (this.fnType == FunctionType.Script)
+        {
+            this.error("Can't return from top-level code.");
+        }
+        if (this.match(TokenType.Semicolon))
+        {
+            this.emitReturn();
+        }
+        else
+        {
+            Compiler.expression(&this);
+            this.consume(TokenType.Semicolon, "Expect ';' after return value.");
+            this.emitByte(OpCode.Return);
+        }
     }
 
     private void synchronize()
