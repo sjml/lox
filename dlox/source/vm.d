@@ -210,6 +210,14 @@ struct VM
             case OpCode.Pop:
                 this.pop();
                 break;
+            case OpCode.GetLocal:
+                ubyte slot = this.readByte();
+                this.push(VM.instance.stack[slot]);
+                break;
+            case OpCode.SetLocal:
+                ubyte slot = this.readByte();
+                VM.instance.stack[slot] = this.peek(0);
+                break;
             case OpCode.GetGlobal:
                 ObjString* name = this.readString();
                 Value val;

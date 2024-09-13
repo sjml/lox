@@ -40,6 +40,10 @@ size_t disassembleInstruction(Chunk* chunk, size_t offset)
         return simpleInstruction("OP_FALSE", offset);
     case OpCode.Pop:
         return simpleInstruction("OP_POP", offset);
+    case OpCode.GetLocal:
+        return byteInstruction("OP_GET_LOCAL", chunk, offset);
+    case OpCode.SetLocal:
+        return byteInstruction("OP_SET_LOCAL", chunk, offset);
     case OpCode.GetGlobal:
         return constantInstruction("OP_GET_GLOBAL", chunk, offset);
     case OpCode.DefineGlobal:
@@ -86,5 +90,11 @@ size_t constantInstruction(string name, Chunk* chunk, size_t offset)
     writef("%-16s %4d '", name, constantIdx);
     printValue(chunk.constants.values[constantIdx]);
     writefln("'");
+    return offset + 2;
+}
+
+size_t byteInstruction(string name, Chunk* chunk, size_t offset) {
+    ubyte slot = chunk.code[offset + 1];
+    writefln("%-16s %4d", name, slot);
     return offset + 2;
 }

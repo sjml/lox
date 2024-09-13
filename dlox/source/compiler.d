@@ -86,11 +86,20 @@ ParseRule[] rules = [
 ];
 // dfmt on
 
+struct Local {
+    Token name;
+    int depth;
+}
+
 struct Compiler
 {
     Scanner scanner;
     Parser parser;
     Chunk* compilingChunk = null;
+
+    Local[ubyte.max + 1] locals;
+    size_t localCount = 0;
+    int scopeDepth = 0;
 
     bool compile(string source, Chunk* c)
     {
@@ -182,6 +191,22 @@ struct Compiler
         }
     }
 
+    private void beginScope() {
+        this.scopeDepth += 1;
+    }
+
+    private void endScope() {
+        this.scopeDepth -= 1;
+
+        while (
+            (this.localCount > 0)
+            && (this.locals[this.localCount-1].depth > this.scopeDepth)
+        ) {
+            this.emitByte(OpCode.Pop);
+            this.localCount -= 1;
+        }
+    }
+
     private ubyte makeConstant(Value val)
     {
         size_t constIdx = this.currentChunk().addConstant(val);
@@ -220,20 +245,87 @@ struct Compiler
 
     private ubyte parseVariable(string errorMessage) {
         this.consume(TokenType.Identifier, errorMessage);
+        this.declareVariable();
+        if (this.scopeDepth > 0) {
+            return 0;
+        }
         return this.identifierConstant(&this.parser.previous);
     }
 
+    private void declareVariable() {
+        if (this.scopeDepth == 0) {
+            return;
+        }
+        Token* name = &this.parser.previous;
+        if (this.localCount > 0) {
+            for (int idx = to!int(this.localCount - 1); idx >= 0; idx--) {
+                Local* local = &this.locals[idx];
+                if (local.depth != -1 && local.depth < this.scopeDepth) {
+                    break;
+                }
+                if (this.identifiersEqual(name, &local.name)) {
+                    this.error("Already a variable with this name in this scope.");
+                }
+            }
+        }
+        this.addLocal(*name);
+    }
+
     private void defineVariable(ubyte global) {
+        if (this.scopeDepth > 0) {
+            this.markInitialized();
+            return;
+        }
         this.emitBytes(OpCode.DefineGlobal, global);
+    }
+
+    private void markInitialized() {
+        this.locals[this.localCount - 1].depth = this.scopeDepth;
+    }
+
+    private void addLocal(Token name) {
+        if (this.localCount == ubyte.max+1) {
+            this.error("Too many local variables in function.");
+            return;
+        }
+        Local* local = &this.locals[this.localCount++];
+        local.name = name;
+        local.depth = -1;
+    }
+
+    private int resolveLocal(Token* name) {
+        if (this.localCount > 0) {
+            for (int idx = to!int(this.localCount - 1); idx >= 0; idx--) {
+                Local* local = &this.locals[idx];
+                if (this.identifiersEqual(name, &local.name)) {
+                    if (local.depth == -1) {
+                        this.error("Can't read local variable in its own initializer.");
+                    }
+                    return idx;
+                }
+            }
+        }
+        return -1;
     }
 
     private ubyte identifierConstant(Token* name) {
         return this.makeConstant(Value(cast(Obj*) ObjString.fromCopyOf(name.lexeme)));
     }
 
+    private bool identifiersEqual(Token* a, Token* b) {
+        return a.lexeme == b.lexeme;
+    }
+
     static ParseRule* getRule(TokenType tokType)
     {
         return &rules[tokType];
+    }
+
+    private void block() {
+        while (!this.check(TokenType.RightBrace) && !this.check(TokenType.EndOfFile)) {
+            Compiler.declaration(&this);
+        }
+        this.consume(TokenType.RightBrace, "Expect '}' after block.");
     }
 
     static void declaration(Compiler* self) {
@@ -252,6 +344,11 @@ struct Compiler
     static void statement(Compiler* self) {
         if (self.match(TokenType.Print)) {
             self.printStatement();
+        }
+        else if (self.match(TokenType.LeftBrace)) {
+            self.beginScope();
+            self.block();
+            self.endScope();
         }
         else {
             self.expressionStatement();
@@ -387,13 +484,24 @@ struct Compiler
     }
 
     static void namedVariable(Compiler* self, Token name, bool canAssign) {
-        ubyte arg = self.identifierConstant(&name);
-        if (canAssign && self.match(TokenType.Equal)) {
-            Compiler.expression(self);
-            self.emitBytes(OpCode.SetGlobal, arg);
+        ubyte getOp, setOp;
+        int arg = self.resolveLocal(&name);
+        if (arg != -1) {
+            getOp = OpCode.GetLocal;
+            setOp = OpCode.SetLocal;
         }
         else {
-            self.emitBytes(OpCode.GetGlobal, arg);
+            arg = self.identifierConstant(&name);
+            getOp = OpCode.GetGlobal;
+            setOp = OpCode.SetGlobal;
+        }
+
+        if (canAssign && self.match(TokenType.Equal)) {
+            Compiler.expression(self);
+            self.emitBytes(setOp, to!ubyte(arg));
+        }
+        else {
+            self.emitBytes(getOp, to!ubyte(arg));
         }
     }
 
