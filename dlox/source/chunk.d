@@ -32,7 +32,7 @@ struct Chunk
 {
     size_t count = 0;
     ubyte[] code;
-    size_t[] line_numbers;
+    size_t[] lineNumbers;
     ValueArray constants;
 
     void write(ubyte data, size_t line)
@@ -40,10 +40,10 @@ struct Chunk
         if (this.code.length < this.count + 1)
         {
             this.code.length = growCapacity(this.code.length);
-            this.line_numbers.length = this.code.length;
+            this.lineNumbers.length = this.code.length;
         }
         this.code[this.count] = data;
-        this.line_numbers[this.count] = line;
+        this.lineNumbers[this.count] = line;
         this.count += 1;
     }
 
@@ -56,7 +56,7 @@ struct Chunk
     void free()
     {
         this.code.length = 0;
-        this.line_numbers.length = 0;
+        this.lineNumbers.length = 0;
         this.count = 0;
         this.constants.free();
     }

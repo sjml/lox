@@ -35,7 +35,7 @@ struct Table
 
         Entry* entry = Table.findEntry(this.entries, key);
         bool isNewKey = entry.key == null;
-        if (isNewKey && entry.value.val_type == ValueType.Nil)
+        if (isNewKey && entry.value.valType == ValueType.Nil)
         {
             this.count += 1;
         }
@@ -101,7 +101,7 @@ struct Table
             Entry* entry = &haystack[idx];
             if (entry.key == null)
             {
-                if (entry.value.val_type == ValueType.Nil)
+                if (entry.value.valType == ValueType.Nil)
                 {
                     return tombstone != null ? tombstone : entry;
                 }
@@ -135,7 +135,7 @@ struct Table
             Entry* entry = &this.entries[index];
             if (entry.key == null)
             {
-                if (entry.value.val_type == ValueType.Nil)
+                if (entry.value.valType == ValueType.Nil)
                 {
                     return null;
                 }

@@ -14,13 +14,13 @@ enum ObjType
 
 struct Obj
 {
-    ObjType obj_type;
+    ObjType objType;
     Obj* next = null;
 
-    private static Obj* allocateObject(size_t size, ObjType obj_type)
+    private static Obj* allocateObject(size_t size, ObjType objType)
     {
         Obj* ret = cast(Obj*) GC.malloc(size);
-        ret.obj_type = obj_type;
+        ret.objType = objType;
         ret.next = VM.instance.objects;
         VM.instance.objects = ret;
         return ret;
@@ -28,7 +28,7 @@ struct Obj
 
     void free()
     {
-        switch (this.obj_type)
+        switch (this.objType)
         {
         case ObjType.String:
             ObjString* os = this.asString();
@@ -42,7 +42,7 @@ struct Obj
 
     void print()
     {
-        switch (this.obj_type)
+        switch (this.objType)
         {
         case ObjType.String:
             writef("%s", fromStringz(this.asString().chars));
@@ -54,7 +54,7 @@ struct Obj
 
     pragma(inline) ObjString* asString()
     {
-        if (this.obj_type != ObjType.String)
+        if (this.objType != ObjType.String)
         {
             return null;
         }
@@ -90,12 +90,12 @@ struct ObjString
     static ObjString* allocateString(size_t length, uint hash)
     {
         Obj* ret = Obj.allocateObject(ObjString.sizeof, ObjType.String);
-        ObjString* str_ret = ret.asString();
-        str_ret.hash = hash;
-        VM.instance.strings.set(str_ret, Value.nil());
-        str_ret.chars = cast(char*) GC.calloc(length + 1);
-        str_ret.length = length;
-        return str_ret;
+        ObjString* strRet = ret.asString();
+        strRet.hash = hash;
+        VM.instance.strings.set(strRet, Value.nil());
+        strRet.chars = cast(char*) GC.calloc(length + 1);
+        strRet.length = length;
+        return strRet;
     }
 
     static uint hashString(string s)

@@ -1,8 +1,8 @@
 module util;
 
-size_t growCapacity(size_t current_cap)
+size_t growCapacity(size_t currentCap)
 {
-    if (current_cap < 8)
+    if (currentCap < 8)
         return 8;
-    return current_cap * 2;
+    return currentCap * 2;
 }

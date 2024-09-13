@@ -18,13 +18,13 @@ void disassembleChunk(Chunk* chunk, string name)
 size_t disassembleInstruction(Chunk* chunk, size_t offset)
 {
     writef("%04d ", offset);
-    if (offset > 0 && chunk.line_numbers[offset] == chunk.line_numbers[offset - 1])
+    if (offset > 0 && chunk.lineNumbers[offset] == chunk.lineNumbers[offset - 1])
     {
         writef("   | ");
     }
     else
     {
-        writef("%4d ", chunk.line_numbers[offset]);
+        writef("%4d ", chunk.lineNumbers[offset]);
     }
 
     ubyte inst = chunk.code[offset];
@@ -82,9 +82,9 @@ size_t simpleInstruction(string name, size_t offset)
 
 size_t constantInstruction(string name, Chunk* chunk, size_t offset)
 {
-    ubyte constant_idx = chunk.code[offset + 1];
-    writef("%-16s %4d '", name, constant_idx);
-    printValue(chunk.constants.values[constant_idx]);
+    ubyte constantIdx = chunk.code[offset + 1];
+    writef("%-16s %4d '", name, constantIdx);
+    printValue(chunk.constants.values[constantIdx]);
     writefln("'");
     return offset + 2;
 }

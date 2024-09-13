@@ -117,7 +117,7 @@ struct Compiler
         while (true)
         {
             this.parser.current = this.scanner.scanToken();
-            if (parser.current.tok_type != TokenType.Error)
+            if (parser.current.tokType != TokenType.Error)
             {
                 break;
             }
@@ -126,9 +126,9 @@ struct Compiler
         }
     }
 
-    private void consume(TokenType tok_type, const string message)
+    private void consume(TokenType tokType, const string message)
     {
-        if (this.parser.current.tok_type == tok_type)
+        if (this.parser.current.tokType == tokType)
         {
             this.advance();
             return;
@@ -137,16 +137,16 @@ struct Compiler
         this.errorAtCurrent(message);
     }
 
-    private bool match(TokenType tok_type) {
-        if (!this.check(tok_type)) {
+    private bool match(TokenType tokType) {
+        if (!this.check(tokType)) {
             return false;
         }
         this.advance();
         return true;
     }
 
-    private bool check(TokenType tok_type) {
-        return this.parser.current.tok_type == tok_type;
+    private bool check(TokenType tokType) {
+        return this.parser.current.tokType == tokType;
     }
 
     private void emitByte(ubyte data)
@@ -196,7 +196,7 @@ struct Compiler
     private void parsePrecedence(Precedence precedence)
     {
         this.advance();
-        ParseFunction prefixRule = Compiler.getRule(this.parser.previous.tok_type).prefix;
+        ParseFunction prefixRule = Compiler.getRule(this.parser.previous.tokType).prefix;
         if (prefixRule == null)
         {
             this.error("Expect expression.");
@@ -206,10 +206,10 @@ struct Compiler
         bool canAssign = precedence <= Precedence.Assignment;
         prefixRule(&this, canAssign);
 
-        while (precedence <= Compiler.getRule(this.parser.current.tok_type).precedence)
+        while (precedence <= Compiler.getRule(this.parser.current.tokType).precedence)
         {
             this.advance();
-            ParseFunction infixRule = Compiler.getRule(this.parser.previous.tok_type).infix;
+            ParseFunction infixRule = Compiler.getRule(this.parser.previous.tokType).infix;
             infixRule(&this, canAssign);
         }
 
@@ -231,9 +231,9 @@ struct Compiler
         return this.makeConstant(Value(cast(Obj*) ObjString.fromCopyOf(name.lexeme)));
     }
 
-    static ParseRule* getRule(TokenType tok_type)
+    static ParseRule* getRule(TokenType tokType)
     {
-        return &rules[tok_type];
+        return &rules[tokType];
     }
 
     static void declaration(Compiler* self) {
@@ -291,7 +291,7 @@ struct Compiler
 
     static void binary(Compiler* self, bool canAssign)
     {
-        TokenType op = self.parser.previous.tok_type;
+        TokenType op = self.parser.previous.tokType;
         ParseRule* rule = Compiler.getRule(op);
         self.parsePrecedence(to!Precedence(rule.precedence + 1));
 
@@ -334,7 +334,7 @@ struct Compiler
 
     static void literal(Compiler* self, bool canAssign)
     {
-        switch (self.parser.previous.tok_type)
+        switch (self.parser.previous.tokType)
         {
         case TokenType.False:
             self.emitByte(OpCode.False);
@@ -352,7 +352,7 @@ struct Compiler
 
     static void unary(Compiler* self, bool canAssign)
     {
-        TokenType op = self.parser.previous.tok_type;
+        TokenType op = self.parser.previous.tokType;
 
         self.parsePrecedence(Precedence.Unary);
 
@@ -406,11 +406,11 @@ struct Compiler
     private void synchronize() {
         this.parser.panicMode = false;
 
-        while (this.parser.current.tok_type != TokenType.EndOfFile) {
-            if (this.parser.previous.tok_type == TokenType.Semicolon) {
+        while (this.parser.current.tokType != TokenType.EndOfFile) {
+            if (this.parser.previous.tokType == TokenType.Semicolon) {
                 return;
             }
-            switch (this.parser.current.tok_type) {
+            switch (this.parser.current.tokType) {
                 case TokenType.Class | TokenType.Fun | TokenType.Var | TokenType.For | TokenType.If
                     | TokenType.While | TokenType.Print | TokenType.Return:
                     return;
@@ -442,11 +442,11 @@ struct Compiler
 
         stderr.writef("[line %d] Error", tok.line);
 
-        if (tok.tok_type == TokenType.EndOfFile)
+        if (tok.tokType == TokenType.EndOfFile)
         {
             stderr.write(" at end");
         }
-        else if (tok.tok_type == TokenType.Error)
+        else if (tok.tokType == TokenType.Error)
         {
             // no-op
         }

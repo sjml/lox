@@ -76,7 +76,7 @@ struct VM
         stderr.writefln(args);
 
         size_t inst = this.ip - this.chunk.code.ptr - 1;
-        size_t line = this.chunk.line_numbers[inst];
+        size_t line = this.chunk.lineNumbers[inst];
         stderr.writefln("[line %d] in script", line);
         this.resetStack();
     }
@@ -119,8 +119,8 @@ struct VM
 
     pragma(inline) private bool binaryNumericOperation(BinaryOperator op)
     {
-        if (!(this.peek(0).val_type == ValueType.Number) || !(this.peek(1)
-                .val_type == ValueType.Number))
+        if (!(this.peek(0).valType == ValueType.Number) || !(this.peek(1)
+                .valType == ValueType.Number))
         {
             this.runtimeError("Operands must be numbers.");
             return false;
@@ -255,8 +255,8 @@ struct VM
                 {
                     this.concatenateStrings();
                 }
-                else if (this.peek(0).val_type == ValueType.Number
-                        && (this.peek(1).val_type == ValueType.Number))
+                else if (this.peek(0).valType == ValueType.Number
+                        && (this.peek(1).valType == ValueType.Number))
                 {
                     double b = this.pop().number;
                     double a = this.pop().number;
@@ -290,7 +290,7 @@ struct VM
                 this.push(Value(pop().isFalsey()));
                 break;
             case OpCode.Negate:
-                if (this.peek(0).val_type != ValueType.Number)
+                if (this.peek(0).valType != ValueType.Number)
                 {
                     this.runtimeError("Operand must be a number.");
                     return InterpretResult.RuntimeError;

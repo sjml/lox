@@ -54,7 +54,7 @@ enum TokenType
 
 struct Token
 {
-    TokenType tok_type;
+    TokenType tokType;
     string lexeme;
     size_t line;
 }
@@ -187,7 +187,7 @@ struct Scanner
         return ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_');
     }
 
-    private TokenType checkKeyword(size_t start, string rest, TokenType tok_type)
+    private TokenType checkKeyword(size_t start, string rest, TokenType tokType)
     {
         if (this.current - this.start != start + rest.length)
         {
@@ -200,7 +200,7 @@ struct Scanner
                 return TokenType.Identifier;
             }
         }
-        return tok_type;
+        return tokType;
     }
 
     private void skipWhitespaceAndComments()
@@ -350,7 +350,7 @@ struct Scanner
     private Token makeToken(TokenType type)
     {
         Token tok;
-        tok.tok_type = type;
+        tok.tokType = type;
         tok.lexeme = this.start[0 .. (this.current - this.start)];
         tok.line = this.line;
         return tok;
@@ -359,7 +359,7 @@ struct Scanner
     private Token errorToken(string message)
     {
         Token tok;
-        tok.tok_type = TokenType.Error;
+        tok.tokType = TokenType.Error;
         tok.lexeme = message;
         tok.line = this.line;
         return tok;

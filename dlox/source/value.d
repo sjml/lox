@@ -16,7 +16,7 @@ enum ValueType
 
 struct Value
 {
-    ValueType val_type;
+    ValueType valType;
     union
     {
         bool boolean;
@@ -26,36 +26,36 @@ struct Value
 
     this(bool b)
     {
-        this.val_type = ValueType.Boolean;
+        this.valType = ValueType.Boolean;
         this.boolean = b;
     }
 
     this(double n)
     {
-        this.val_type = ValueType.Number;
+        this.valType = ValueType.Number;
         this.number = n;
     }
 
     this(Obj* o)
     {
-        this.val_type = ValueType.Obj;
+        this.valType = ValueType.Obj;
         this.obj = o;
     }
 
     static Value nil()
     {
         Value v = Value();
-        v.val_type = ValueType.Nil;
+        v.valType = ValueType.Nil;
         return v;
     }
 
     bool equals(Value other)
     {
-        if (this.val_type != other.val_type)
+        if (this.valType != other.valType)
         {
             return false;
         }
-        switch (this.val_type)
+        switch (this.valType)
         {
         case ValueType.Boolean:
             return this.boolean == other.boolean;
@@ -72,11 +72,11 @@ struct Value
 
     bool isFalsey()
     {
-        if (this.val_type == ValueType.Nil)
+        if (this.valType == ValueType.Nil)
         {
             return true;
         }
-        if (this.val_type == ValueType.Boolean)
+        if (this.valType == ValueType.Boolean)
         {
             return !this.boolean;
         }
@@ -85,7 +85,7 @@ struct Value
 
     bool isObjType(ObjType ot)
     {
-        return this.val_type == ValueType.Obj && this.obj.obj_type == ot;
+        return this.valType == ValueType.Obj && this.obj.objType == ot;
     }
 }
 
@@ -113,7 +113,7 @@ struct ValueArray
 
 void printValue(Value val)
 {
-    switch (val.val_type)
+    switch (val.valType)
     {
     case ValueType.Boolean:
         writef(val.boolean ? "true" : "false");
