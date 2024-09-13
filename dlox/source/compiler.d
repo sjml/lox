@@ -86,7 +86,8 @@ ParseRule[] rules = [
 ];
 // dfmt on
 
-struct Local {
+struct Local
+{
     Token name;
     int depth;
 }
@@ -107,7 +108,8 @@ struct Compiler
         this.compilingChunk = c;
 
         this.advance();
-        while (!this.match(TokenType.EndOfFile)) {
+        while (!this.match(TokenType.EndOfFile))
+        {
             Compiler.declaration(&this);
         }
         this.end();
@@ -146,15 +148,18 @@ struct Compiler
         this.errorAtCurrent(message);
     }
 
-    private bool match(TokenType tokType) {
-        if (!this.check(tokType)) {
+    private bool match(TokenType tokType)
+    {
+        if (!this.check(tokType))
+        {
             return false;
         }
         this.advance();
         return true;
     }
 
-    private bool check(TokenType tokType) {
+    private bool check(TokenType tokType)
+    {
         return this.parser.current.tokType == tokType;
     }
 
@@ -169,26 +174,31 @@ struct Compiler
         this.emitByte(data2);
     }
 
-    private size_t emitJump(ubyte instruction) {
+    private size_t emitJump(ubyte instruction)
+    {
         this.emitByte(instruction);
         this.emitByte(0xff);
         this.emitByte(0xff);
         return this.currentChunk().count - 2;
     }
 
-    private void patchJump(size_t offset) {
+    private void patchJump(size_t offset)
+    {
         size_t jump = this.currentChunk().count - offset - 2;
-        if (jump > ushort.max) {
+        if (jump > ushort.max)
+        {
             this.error("Too much code to jump over.");
         }
         this.currentChunk().code[offset] = (jump >> 8) & 0xff;
-        this.currentChunk().code[offset+1] = jump & 0xff;
+        this.currentChunk().code[offset + 1] = jump & 0xff;
     }
 
-    private void emitLoop(size_t loopStart) {
+    private void emitLoop(size_t loopStart)
+    {
         this.emitByte(OpCode.Loop);
         size_t offset = this.currentChunk().count - loopStart + 2;
-        if (offset > ushort.max) {
+        if (offset > ushort.max)
+        {
             this.error("Loop body too large.");
         }
         this.emitByte((offset >> 8) & 0xff);
@@ -217,17 +227,17 @@ struct Compiler
         }
     }
 
-    private void beginScope() {
+    private void beginScope()
+    {
         this.scopeDepth += 1;
     }
 
-    private void endScope() {
+    private void endScope()
+    {
         this.scopeDepth -= 1;
 
-        while (
-            (this.localCount > 0)
-            && (this.locals[this.localCount-1].depth > this.scopeDepth)
-        ) {
+        while ((this.localCount > 0) && (this.locals[this.localCount - 1].depth > this.scopeDepth))
+        {
             this.emitByte(OpCode.Pop);
             this.localCount -= 1;
         }
@@ -264,32 +274,41 @@ struct Compiler
             infixRule(&this, canAssign);
         }
 
-        if (canAssign && this.match(TokenType.Equal)) {
+        if (canAssign && this.match(TokenType.Equal))
+        {
             this.error("Invalid assignment target.");
         }
     }
 
-    private ubyte parseVariable(string errorMessage) {
+    private ubyte parseVariable(string errorMessage)
+    {
         this.consume(TokenType.Identifier, errorMessage);
         this.declareVariable();
-        if (this.scopeDepth > 0) {
+        if (this.scopeDepth > 0)
+        {
             return 0;
         }
         return this.identifierConstant(&this.parser.previous);
     }
 
-    private void declareVariable() {
-        if (this.scopeDepth == 0) {
+    private void declareVariable()
+    {
+        if (this.scopeDepth == 0)
+        {
             return;
         }
         Token* name = &this.parser.previous;
-        if (this.localCount > 0) {
-            for (int idx = to!int(this.localCount - 1); idx >= 0; idx--) {
+        if (this.localCount > 0)
+        {
+            for (int idx = to!int(this.localCount - 1); idx >= 0; idx--)
+            {
                 Local* local = &this.locals[idx];
-                if (local.depth != -1 && local.depth < this.scopeDepth) {
+                if (local.depth != -1 && local.depth < this.scopeDepth)
+                {
                     break;
                 }
-                if (this.identifiersEqual(name, &local.name)) {
+                if (this.identifiersEqual(name, &local.name))
+                {
                     this.error("Already a variable with this name in this scope.");
                 }
             }
@@ -297,22 +316,26 @@ struct Compiler
         this.addLocal(*name);
     }
 
-    private void defineVariable(ubyte global) {
-        if (this.scopeDepth > 0) {
+    private void defineVariable(ubyte global)
+    {
+        if (this.scopeDepth > 0)
+        {
             this.markInitialized();
             return;
         }
         this.emitBytes(OpCode.DefineGlobal, global);
     }
 
-    static void and(Compiler* self, bool canAssign) {
+    static void and(Compiler* self, bool canAssign)
+    {
         size_t endJump = self.emitJump(OpCode.JumpIfFalse);
         self.emitByte(OpCode.Pop);
         self.parsePrecedence(Precedence.And);
         self.patchJump(endJump);
     }
 
-    static void or(Compiler* self, bool canAssign) {
+    static void or(Compiler* self, bool canAssign)
+    {
         size_t elseJump = self.emitJump(OpCode.JumpIfFalse);
         size_t endJump = self.emitJump(OpCode.Jump);
 
@@ -323,12 +346,15 @@ struct Compiler
         self.patchJump(endJump);
     }
 
-    private void markInitialized() {
+    private void markInitialized()
+    {
         this.locals[this.localCount - 1].depth = this.scopeDepth;
     }
 
-    private void addLocal(Token name) {
-        if (this.localCount == ubyte.max+1) {
+    private void addLocal(Token name)
+    {
+        if (this.localCount == ubyte.max + 1)
+        {
             this.error("Too many local variables in function.");
             return;
         }
@@ -337,12 +363,17 @@ struct Compiler
         local.depth = -1;
     }
 
-    private int resolveLocal(Token* name) {
-        if (this.localCount > 0) {
-            for (int idx = to!int(this.localCount - 1); idx >= 0; idx--) {
+    private int resolveLocal(Token* name)
+    {
+        if (this.localCount > 0)
+        {
+            for (int idx = to!int(this.localCount - 1); idx >= 0; idx--)
+            {
                 Local* local = &this.locals[idx];
-                if (this.identifiersEqual(name, &local.name)) {
-                    if (local.depth == -1) {
+                if (this.identifiersEqual(name, &local.name))
+                {
+                    if (local.depth == -1)
+                    {
                         this.error("Can't read local variable in its own initializer.");
                     }
                     return idx;
@@ -352,11 +383,13 @@ struct Compiler
         return -1;
     }
 
-    private ubyte identifierConstant(Token* name) {
+    private ubyte identifierConstant(Token* name)
+    {
         return this.makeConstant(Value(cast(Obj*) ObjString.fromCopyOf(name.lexeme)));
     }
 
-    private bool identifiersEqual(Token* a, Token* b) {
+    private bool identifiersEqual(Token* a, Token* b)
+    {
         return a.lexeme == b.lexeme;
     }
 
@@ -365,45 +398,58 @@ struct Compiler
         return &rules[tokType];
     }
 
-    private void block() {
-        while (!this.check(TokenType.RightBrace) && !this.check(TokenType.EndOfFile)) {
+    private void block()
+    {
+        while (!this.check(TokenType.RightBrace) && !this.check(TokenType.EndOfFile))
+        {
             Compiler.declaration(&this);
         }
         this.consume(TokenType.RightBrace, "Expect '}' after block.");
     }
 
-    static void declaration(Compiler* self) {
-        if (self.match(TokenType.Var)) {
+    static void declaration(Compiler* self)
+    {
+        if (self.match(TokenType.Var))
+        {
             Compiler.varDeclaration(self);
         }
-        else {
+        else
+        {
             Compiler.statement(self);
         }
 
-        if (self.parser.panicMode) {
+        if (self.parser.panicMode)
+        {
             self.synchronize();
         }
     }
 
-    static void statement(Compiler* self) {
-        if (self.match(TokenType.Print)) {
+    static void statement(Compiler* self)
+    {
+        if (self.match(TokenType.Print))
+        {
             self.printStatement();
         }
-        else if (self.match(TokenType.If)) {
+        else if (self.match(TokenType.If))
+        {
             self.ifStatement();
         }
-        else if (self.match(TokenType.While)) {
+        else if (self.match(TokenType.While))
+        {
             self.whileStatement();
         }
-        else if (self.match(TokenType.For)) {
+        else if (self.match(TokenType.For))
+        {
             self.forStatement();
         }
-        else if (self.match(TokenType.LeftBrace)) {
+        else if (self.match(TokenType.LeftBrace))
+        {
             self.beginScope();
             self.block();
             self.endScope();
         }
-        else {
+        else
+        {
             self.expressionStatement();
         }
     }
@@ -419,13 +465,16 @@ struct Compiler
         self.parsePrecedence(Precedence.Assignment);
     }
 
-    static void varDeclaration(Compiler* self) {
+    static void varDeclaration(Compiler* self)
+    {
         ubyte global = self.parseVariable("Expect variable name.");
 
-        if (self.match(TokenType.Equal)) {
+        if (self.match(TokenType.Equal))
+        {
             Compiler.expression(self);
         }
-        else {
+        else
+        {
             self.emitByte(OpCode.Nil);
         }
         self.consume(TokenType.Semicolon, "Expect ';' after variable declaration.");
@@ -433,13 +482,15 @@ struct Compiler
         self.defineVariable(global);
     }
 
-    private void expressionStatement() {
+    private void expressionStatement()
+    {
         Compiler.expression(&this);
         this.consume(TokenType.Semicolon, "Expect ';' after expression.");
         this.emitByte(OpCode.Pop);
     }
 
-    private void ifStatement() {
+    private void ifStatement()
+    {
         this.consume(TokenType.LeftParen, "Expect '(' after 'if'.");
         Compiler.expression(&this);
         this.consume(TokenType.RightParen, "Expect ')' after condition.");
@@ -451,7 +502,8 @@ struct Compiler
         this.patchJump(thenJump);
         this.emitByte(OpCode.Pop);
 
-        if (this.match(TokenType.Else)) {
+        if (this.match(TokenType.Else))
+        {
             Compiler.statement(&this);
         }
         this.patchJump(elseJump);
@@ -550,39 +602,47 @@ struct Compiler
         self.emitConstant(Value(cast(Obj*) os));
     }
 
-    static void variable(Compiler* self, bool canAssign) {
+    static void variable(Compiler* self, bool canAssign)
+    {
         Compiler.namedVariable(self, self.parser.previous, canAssign);
     }
 
-    static void namedVariable(Compiler* self, Token name, bool canAssign) {
+    static void namedVariable(Compiler* self, Token name, bool canAssign)
+    {
         ubyte getOp, setOp;
         int arg = self.resolveLocal(&name);
-        if (arg != -1) {
+        if (arg != -1)
+        {
             getOp = OpCode.GetLocal;
             setOp = OpCode.SetLocal;
         }
-        else {
+        else
+        {
             arg = self.identifierConstant(&name);
             getOp = OpCode.GetGlobal;
             setOp = OpCode.SetGlobal;
         }
 
-        if (canAssign && self.match(TokenType.Equal)) {
+        if (canAssign && self.match(TokenType.Equal))
+        {
             Compiler.expression(self);
             self.emitBytes(setOp, to!ubyte(arg));
         }
-        else {
+        else
+        {
             self.emitBytes(getOp, to!ubyte(arg));
         }
     }
 
-    private void printStatement() {
+    private void printStatement()
+    {
         Compiler.expression(&this);
         this.consume(TokenType.Semicolon, "Expect ';' after value.");
         this.emitByte(OpCode.Print);
     }
 
-    private void whileStatement() {
+    private void whileStatement()
+    {
         size_t loopStart = this.currentChunk().count;
         this.consume(TokenType.LeftParen, "Expect '(' after 'while'.");
         Compiler.expression(&this);
@@ -597,29 +657,36 @@ struct Compiler
         this.emitByte(OpCode.Pop);
     }
 
-    private void forStatement() {
+    private void forStatement()
+    {
         this.beginScope();
         this.consume(TokenType.LeftParen, "Expect '(' after 'for'.");
-        if (this.match(TokenType.Semicolon)) {
+        if (this.match(TokenType.Semicolon))
+        {
             // no-op
-        } else if (this.match(TokenType.Var)) {
+        }
+        else if (this.match(TokenType.Var))
+        {
             Compiler.varDeclaration(&this);
         }
-        else {
+        else
+        {
             this.expressionStatement();
         }
 
         size_t loopStart = this.currentChunk().count;
 
         size_t exitJump = -1; // yikes, I know
-        if (!this.match(TokenType.Semicolon)) {
+        if (!this.match(TokenType.Semicolon))
+        {
             Compiler.expression(&this);
             this.consume(TokenType.Semicolon, "Expect ';' after loop condition.");
             exitJump = this.emitJump(OpCode.JumpIfFalse);
             this.emitByte(OpCode.Pop);
         }
 
-        if (!this.match(TokenType.RightParen)) {
+        if (!this.match(TokenType.RightParen))
+        {
             size_t bodyJump = this.emitJump(OpCode.Jump);
             size_t incrementStart = this.currentChunk().count;
             Compiler.expression(&this);
@@ -633,7 +700,8 @@ struct Compiler
         Compiler.statement(&this);
         this.emitLoop(loopStart);
 
-        if (exitJump != -1) {
+        if (exitJump != -1)
+        {
             this.patchJump(exitJump);
             this.emitByte(OpCode.Pop);
         }
@@ -641,19 +709,23 @@ struct Compiler
         this.endScope();
     }
 
-    private void synchronize() {
+    private void synchronize()
+    {
         this.parser.panicMode = false;
 
-        while (this.parser.current.tokType != TokenType.EndOfFile) {
-            if (this.parser.previous.tokType == TokenType.Semicolon) {
+        while (this.parser.current.tokType != TokenType.EndOfFile)
+        {
+            if (this.parser.previous.tokType == TokenType.Semicolon)
+            {
                 return;
             }
-            switch (this.parser.current.tokType) {
-                case TokenType.Class | TokenType.Fun | TokenType.Var | TokenType.For | TokenType.If
-                    | TokenType.While | TokenType.Print | TokenType.Return:
+            switch (this.parser.current.tokType)
+            {
+            case TokenType.Class | TokenType.Fun | TokenType.Var | TokenType.For
+                    | TokenType.If | TokenType.While | TokenType.Print | TokenType.Return:
                     return;
-                default:
-                    break; //
+            default:
+                break; //
             }
 
             this.advance();

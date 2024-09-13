@@ -108,7 +108,8 @@ struct VM
         return *this.ip++;
     }
 
-    pragma(inline) private ushort readShort() {
+    pragma(inline) private ushort readShort()
+    {
         this.ip += 2;
         return cast(ushort)(this.ip[-2] << 8 | this.ip[-1]);
     }
@@ -118,7 +119,8 @@ struct VM
         return this.chunk.constants.values[this.readByte];
     }
 
-    pragma(inline) private ObjString* readString() {
+    pragma(inline) private ObjString* readString()
+    {
         return this.readConstant().obj.asString();
     }
 
@@ -226,7 +228,8 @@ struct VM
             case OpCode.GetGlobal:
                 ObjString* name = this.readString();
                 Value val;
-                if (!this.globals.get(name, &val)) {
+                if (!this.globals.get(name, &val))
+                {
                     this.runtimeError("Undefined variable '%s'.", fromStringz(name.chars));
                     return InterpretResult.RuntimeError;
                 }
@@ -239,7 +242,8 @@ struct VM
                 break;
             case OpCode.SetGlobal:
                 ObjString* name = this.readString();
-                if (this.globals.set(name, this.peek(0))) {
+                if (this.globals.set(name, this.peek(0)))
+                {
                     this.globals.remove(name);
                     this.runtimeError("Undefined variable '%s'.", fromStringz(name.chars));
                     return InterpretResult.RuntimeError;
@@ -320,7 +324,8 @@ struct VM
                 break;
             case OpCode.JumpIfFalse:
                 ushort offset = this.readShort();
-                if (this.peek(0).isFalsey()) {
+                if (this.peek(0).isFalsey())
+                {
                     this.ip += offset;
                 }
                 break;

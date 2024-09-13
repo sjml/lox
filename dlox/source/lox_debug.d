@@ -99,13 +99,15 @@ size_t constantInstruction(string name, Chunk* chunk, size_t offset)
     return offset + 2;
 }
 
-size_t byteInstruction(string name, Chunk* chunk, size_t offset) {
+size_t byteInstruction(string name, Chunk* chunk, size_t offset)
+{
     ubyte slot = chunk.code[offset + 1];
     writefln("%-16s %4d", name, slot);
     return offset + 2;
 }
 
-size_t jumpInstruction(string name, int sign, Chunk* chunk, size_t offset) {
+size_t jumpInstruction(string name, int sign, Chunk* chunk, size_t offset)
+{
     ushort jump = chunk.code[offset + 1] << 8;
     jump |= chunk.code[offset + 2];
     writefln("%-16s %4d -> %d", name, offset, offset + 3 + sign * jump);
