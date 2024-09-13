@@ -65,7 +65,7 @@ ParseRule[] rules = [
     /* Identifier   */ ParseRule(&Compiler.variable, null,             Precedence.None        ),
     /* String       */ ParseRule(&Compiler.sstring,  null,             Precedence.None        ),
     /* Number       */ ParseRule(&Compiler.number,   null,             Precedence.None        ),
-    /* And          */ ParseRule(null,               null,             Precedence.None        ),
+    /* And          */ ParseRule(null,               &Compiler.and,    Precedence.And         ),
     /* Class        */ ParseRule(null,               null,             Precedence.None        ),
     /* Else         */ ParseRule(null,               null,             Precedence.None        ),
     /* False        */ ParseRule(&Compiler.literal,  null,             Precedence.None        ),
@@ -73,7 +73,7 @@ ParseRule[] rules = [
     /* Fun          */ ParseRule(null,               null,             Precedence.None        ),
     /* If           */ ParseRule(null,               null,             Precedence.None        ),
     /* Nil          */ ParseRule(&Compiler.literal,  null,             Precedence.None        ),
-    /* Or           */ ParseRule(null,               null,             Precedence.None        ),
+    /* Or           */ ParseRule(null,               &Compiler.or,     Precedence.Or          ),
     /* Print        */ ParseRule(null,               null,             Precedence.None        ),
     /* Return       */ ParseRule(null,               null,             Precedence.None        ),
     /* Super        */ ParseRule(null,               null,             Precedence.None        ),
@@ -167,6 +167,32 @@ struct Compiler
     {
         this.emitByte(data1);
         this.emitByte(data2);
+    }
+
+    private size_t emitJump(ubyte instruction) {
+        this.emitByte(instruction);
+        this.emitByte(0xff);
+        this.emitByte(0xff);
+        return this.currentChunk().count - 2;
+    }
+
+    private void patchJump(size_t offset) {
+        size_t jump = this.currentChunk().count - offset - 2;
+        if (jump > ushort.max) {
+            this.error("Too much code to jump over.");
+        }
+        this.currentChunk().code[offset] = (jump >> 8) & 0xff;
+        this.currentChunk().code[offset+1] = jump & 0xff;
+    }
+
+    private void emitLoop(size_t loopStart) {
+        this.emitByte(OpCode.Loop);
+        size_t offset = this.currentChunk().count - loopStart + 2;
+        if (offset > ushort.max) {
+            this.error("Loop body too large.");
+        }
+        this.emitByte((offset >> 8) & 0xff);
+        this.emitByte(offset & 0xff);
     }
 
     private void emitReturn()
@@ -279,6 +305,24 @@ struct Compiler
         this.emitBytes(OpCode.DefineGlobal, global);
     }
 
+    static void and(Compiler* self, bool canAssign) {
+        size_t endJump = self.emitJump(OpCode.JumpIfFalse);
+        self.emitByte(OpCode.Pop);
+        self.parsePrecedence(Precedence.And);
+        self.patchJump(endJump);
+    }
+
+    static void or(Compiler* self, bool canAssign) {
+        size_t elseJump = self.emitJump(OpCode.JumpIfFalse);
+        size_t endJump = self.emitJump(OpCode.Jump);
+
+        self.patchJump(elseJump);
+        self.emitByte(OpCode.Pop);
+
+        self.parsePrecedence(Precedence.Or);
+        self.patchJump(endJump);
+    }
+
     private void markInitialized() {
         this.locals[this.localCount - 1].depth = this.scopeDepth;
     }
@@ -345,6 +389,15 @@ struct Compiler
         if (self.match(TokenType.Print)) {
             self.printStatement();
         }
+        else if (self.match(TokenType.If)) {
+            self.ifStatement();
+        }
+        else if (self.match(TokenType.While)) {
+            self.whileStatement();
+        }
+        else if (self.match(TokenType.For)) {
+            self.forStatement();
+        }
         else if (self.match(TokenType.LeftBrace)) {
             self.beginScope();
             self.block();
@@ -384,6 +437,24 @@ struct Compiler
         Compiler.expression(&this);
         this.consume(TokenType.Semicolon, "Expect ';' after expression.");
         this.emitByte(OpCode.Pop);
+    }
+
+    private void ifStatement() {
+        this.consume(TokenType.LeftParen, "Expect '(' after 'if'.");
+        Compiler.expression(&this);
+        this.consume(TokenType.RightParen, "Expect ')' after condition.");
+
+        size_t thenJump = this.emitJump(OpCode.JumpIfFalse);
+        this.emitByte(OpCode.Pop);
+        Compiler.statement(&this);
+        size_t elseJump = emitJump(OpCode.Jump);
+        this.patchJump(thenJump);
+        this.emitByte(OpCode.Pop);
+
+        if (this.match(TokenType.Else)) {
+            Compiler.statement(&this);
+        }
+        this.patchJump(elseJump);
     }
 
     static void binary(Compiler* self, bool canAssign)
@@ -509,6 +580,65 @@ struct Compiler
         Compiler.expression(&this);
         this.consume(TokenType.Semicolon, "Expect ';' after value.");
         this.emitByte(OpCode.Print);
+    }
+
+    private void whileStatement() {
+        size_t loopStart = this.currentChunk().count;
+        this.consume(TokenType.LeftParen, "Expect '(' after 'while'.");
+        Compiler.expression(&this);
+        this.consume(TokenType.RightParen, "Expect ')' after condition.");
+
+        size_t exitJump = this.emitJump(OpCode.JumpIfFalse);
+        this.emitByte(OpCode.Pop);
+        Compiler.statement(&this);
+        this.emitLoop(loopStart);
+
+        this.patchJump(exitJump);
+        this.emitByte(OpCode.Pop);
+    }
+
+    private void forStatement() {
+        this.beginScope();
+        this.consume(TokenType.LeftParen, "Expect '(' after 'for'.");
+        if (this.match(TokenType.Semicolon)) {
+            // no-op
+        } else if (this.match(TokenType.Var)) {
+            Compiler.varDeclaration(&this);
+        }
+        else {
+            this.expressionStatement();
+        }
+
+        size_t loopStart = this.currentChunk().count;
+
+        size_t exitJump = -1; // yikes, I know
+        if (!this.match(TokenType.Semicolon)) {
+            Compiler.expression(&this);
+            this.consume(TokenType.Semicolon, "Expect ';' after loop condition.");
+            exitJump = this.emitJump(OpCode.JumpIfFalse);
+            this.emitByte(OpCode.Pop);
+        }
+
+        if (!this.match(TokenType.RightParen)) {
+            size_t bodyJump = this.emitJump(OpCode.Jump);
+            size_t incrementStart = this.currentChunk().count;
+            Compiler.expression(&this);
+            this.emitByte(OpCode.Pop);
+            this.consume(TokenType.RightParen, "Expect ')' after for clauses.");
+            this.emitLoop(loopStart);
+            loopStart = incrementStart;
+            this.patchJump(bodyJump);
+        }
+
+        Compiler.statement(&this);
+        this.emitLoop(loopStart);
+
+        if (exitJump != -1) {
+            this.patchJump(exitJump);
+            this.emitByte(OpCode.Pop);
+        }
+
+        this.endScope();
     }
 
     private void synchronize() {

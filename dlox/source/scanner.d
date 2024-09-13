@@ -330,7 +330,7 @@ struct Scanner
         case 'v':
             return this.checkKeyword(1, "ar", TokenType.Var);
         case 'w':
-            return this.checkKeyword(1, "while", TokenType.While);
+            return this.checkKeyword(1, "hile", TokenType.While);
         default:
             break;
         }

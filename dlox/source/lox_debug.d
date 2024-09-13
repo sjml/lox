@@ -70,6 +70,12 @@ size_t disassembleInstruction(Chunk* chunk, size_t offset)
         return simpleInstruction("OP_NEGATE", offset);
     case OpCode.Print:
         return simpleInstruction("OP_PRINT", offset);
+    case OpCode.Jump:
+        return jumpInstruction("OP_JUMP", 1, chunk, offset);
+    case OpCode.JumpIfFalse:
+        return jumpInstruction("OP_JUMP_IF_FALSE", 1, chunk, offset);
+    case OpCode.Loop:
+        return jumpInstruction("OP_LOOP", -1, chunk, offset);
     case OpCode.Return:
         return simpleInstruction("OP_RETURN", offset);
     default:
@@ -97,4 +103,11 @@ size_t byteInstruction(string name, Chunk* chunk, size_t offset) {
     ubyte slot = chunk.code[offset + 1];
     writefln("%-16s %4d", name, slot);
     return offset + 2;
+}
+
+size_t jumpInstruction(string name, int sign, Chunk* chunk, size_t offset) {
+    ushort jump = chunk.code[offset + 1] << 8;
+    jump |= chunk.code[offset + 2];
+    writefln("%-16s %4d -> %d", name, offset, offset + 3 + sign * jump);
+    return offset + 3;
 }

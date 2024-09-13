@@ -108,6 +108,11 @@ struct VM
         return *this.ip++;
     }
 
+    pragma(inline) private ushort readShort() {
+        this.ip += 2;
+        return cast(ushort)(this.ip[-2] << 8 | this.ip[-1]);
+    }
+
     pragma(inline) private Value readConstant()
     {
         return this.chunk.constants.values[this.readByte];
@@ -308,6 +313,20 @@ struct VM
             case OpCode.Print:
                 printValue(this.pop());
                 writefln("");
+                break;
+            case OpCode.Jump:
+                ushort offset = this.readShort();
+                this.ip += offset;
+                break;
+            case OpCode.JumpIfFalse:
+                ushort offset = this.readShort();
+                if (this.peek(0).isFalsey()) {
+                    this.ip += offset;
+                }
+                break;
+            case OpCode.Loop:
+                ushort offset = this.readShort();
+                this.ip -= offset;
                 break;
             case OpCode.Return:
                 return InterpretResult.Ok;
