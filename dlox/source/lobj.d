@@ -10,9 +10,11 @@ import chunk : Chunk;
 
 enum ObjType
 {
+    Closure,
     Function,
     Native,
     String,
+    Upvalue,
 }
 
 struct Obj
@@ -33,6 +35,11 @@ struct Obj
     {
         switch (this.objType)
         {
+        case ObjType.Closure:
+            ObjClosure* oc = this.asClosure();
+            GC.free(oc.upvalues);
+            GC.free(&this);
+            break;
         case ObjType.Function:
             ObjFunction* of = this.asFunction();
             of.c.free();
@@ -46,6 +53,9 @@ struct Obj
         case ObjType.Native:
             GC.free(&this);
             break;
+        case ObjType.Upvalue:
+            GC.free(&this);
+            break;
         default:
             assert(false); // unreachable
         }
@@ -55,6 +65,9 @@ struct Obj
     {
         switch (this.objType)
         {
+        case ObjType.Closure:
+            this.asClosure().fn.obj.print();
+            break;
         case ObjType.Function:
             ObjFunction* fn = this.asFunction();
             if (fn.name == null)
@@ -70,9 +83,22 @@ struct Obj
         case ObjType.String:
             writef("%s", fromStringz(this.asString().chars));
             break;
+        case ObjType.Upvalue:
+            write("upvalue");
+            break;
         default:
             assert(false); // unreachable
         }
+    }
+
+    // TODO: these functions feel like they could be templated
+    pragma(inline) ObjClosure* asClosure()
+    {
+        if (this.objType != ObjType.Closure)
+        {
+            return null;
+        }
+        return cast(ObjClosure*)&this;
     }
 
     pragma(inline) ObjFunction* asFunction()
@@ -101,12 +127,40 @@ struct Obj
         }
         return cast(ObjString*)&this;
     }
+
+    pragma(inline) ObjUpvalue* asUpvalue()
+    {
+        if (this.objType != ObjType.Upvalue)
+        {
+            return null;
+        }
+        return cast(ObjUpvalue*)&this;
+    }
+}
+
+struct ObjClosure
+{
+    Obj obj;
+    ObjFunction* fn;
+    ObjUpvalue** upvalues;
+    size_t upvalueCount;
+
+    static ObjClosure* create(ObjFunction* fn)
+    {
+        Obj* ret = Obj.allocateObject(ObjClosure.sizeof, ObjType.Closure);
+        ObjClosure* clRet = ret.asClosure();
+        clRet.fn = fn;
+        clRet.upvalues = cast(ObjUpvalue**) GC.calloc((ObjUpvalue*).sizeof * fn.upvalueCount);
+        clRet.upvalueCount = fn.upvalueCount;
+        return clRet;
+    }
 }
 
 struct ObjFunction
 {
     Obj obj;
     size_t arity = 0;
+    size_t upvalueCount = 0;
     Chunk c;
     ObjString* name = null;
 
@@ -188,5 +242,22 @@ struct ObjString
         }
         return h;
     }
+}
 
+struct ObjUpvalue
+{
+    Obj obj;
+    Value* location;
+    Value closed;
+    ObjUpvalue* next;
+
+    static ObjUpvalue* create(Value* slot)
+    {
+        Obj* ret = Obj.allocateObject(ObjUpvalue.sizeof, ObjType.Upvalue);
+        ObjUpvalue* upvRet = ret.asUpvalue();
+        upvRet.closed = Value.nil();
+        upvRet.location = slot;
+        upvRet.next = null;
+        return upvRet;
+    }
 }

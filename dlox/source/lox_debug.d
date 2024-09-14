@@ -4,6 +4,7 @@ import std.stdio;
 
 import value : printValue;
 import chunk : Chunk, OpCode;
+import lobj;
 
 void disassembleChunk(Chunk* chunk, string name)
 {
@@ -50,6 +51,10 @@ size_t disassembleInstruction(Chunk* chunk, size_t offset)
         return constantInstruction("OP_DEFINE_GLOBAL", chunk, offset);
     case OpCode.SetGlobal:
         return constantInstruction("OP_SET_GLOBAL", chunk, offset);
+    case OpCode.GetUpvalue:
+        return byteInstruction("OP_GET_UPVALUE", chunk, offset);
+    case OpCode.SetUpvalue:
+        return byteInstruction("OP_SET_UPVALUE", chunk, offset);
     case OpCode.Equal:
         return simpleInstruction("OP_EQUAL", offset);
     case OpCode.Greater:
@@ -78,6 +83,25 @@ size_t disassembleInstruction(Chunk* chunk, size_t offset)
         return jumpInstruction("OP_LOOP", -1, chunk, offset);
     case OpCode.Call:
         return byteInstruction("OP_CALL", chunk, offset);
+    case OpCode.Closure:
+        offset += 1;
+        ubyte constIdx = chunk.code[offset++];
+        writef("%-16s %4d ", "OP_CLOSURE", constIdx);
+        printValue(chunk.constants.values[constIdx]);
+        writeln("");
+
+        ObjFunction* fn = chunk.constants.values[constIdx].obj.asFunction();
+        for (size_t _ = 0; _ < fn.upvalueCount; _++)
+        {
+            ubyte isLocal = chunk.code[offset++];
+            ubyte idx = chunk.code[offset++];
+            writefln("%04d      |                     %s %d", offset - 2,
+                    isLocal == 1 ? "local" : "upvalue", idx);
+        }
+
+        return offset;
+    case OpCode.CloseUpvalue:
+        return simpleInstruction("OP_CLOSE_UPVALUE", offset);
     case OpCode.Return:
         return simpleInstruction("OP_RETURN", offset);
     default:

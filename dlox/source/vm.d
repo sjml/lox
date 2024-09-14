@@ -10,7 +10,7 @@ import core.stdc.time;
 import chunk : Chunk, OpCode;
 import compiler : Compiler, FunctionType;
 import value : Value, ValueType, printValue;
-import lobj : ObjType, Obj, ObjString, ObjFunction, ObjNative, NativeFn;
+import lobj;
 import table : Table;
 import lox_debug;
 
@@ -36,7 +36,7 @@ static const STACK_MAX = FRAMES_MAX * (ubyte.max + 1);
 
 struct CallFrame
 {
-    ObjFunction* fn;
+    ObjClosure* closure;
     ubyte* ip;
     Value* slots;
 }
@@ -54,6 +54,7 @@ struct VM
     private Value* stackTop = null;
     Table globals;
     Table strings;
+    ObjUpvalue* openUpvalues;
     Obj* objects = null;
     private Compiler compiler;
     static VM* instance = null;
@@ -79,6 +80,7 @@ struct VM
     {
         this.stackTop = stack.ptr;
         this.frameCount = 0;
+        this.openUpvalues = null;
     }
 
     private void freeObjects()
@@ -99,7 +101,7 @@ struct VM
         for (int i = to!int(this.frameCount) - 1; i >= 0; i--)
         {
             CallFrame* frame = &this.frames[i];
-            ObjFunction* fn = frame.fn;
+            ObjFunction* fn = frame.closure.fn;
             size_t inst = frame.ip - &fn.c.code[0] - 1;
             stderr.writef("[line %d] in ", fn.c.lineNumbers[inst]);
             if (fn.name == null)
@@ -132,7 +134,10 @@ struct VM
             return InterpretResult.CompileError;
         }
         VM.instance.push(Value(&cFn.obj));
-        bool _ = VM.instance.call(cFn, 0);
+        ObjClosure* closure = ObjClosure.create(cFn);
+        VM.instance.pop();
+        VM.instance.push(Value(&closure.obj));
+        bool _ = VM.instance.call(closure, 0);
 
         return VM.instance.run();
     }
@@ -212,8 +217,7 @@ struct VM
 
         pragma(inline) Value readConstant()
         {
-            Chunk c = frame.fn.c;
-            return frame.fn.c.constants.values[readByte()];
+            return frame.closure.fn.c.constants.values[readByte()];
         }
 
         pragma(inline) ObjString* readString()
@@ -232,8 +236,9 @@ struct VM
                     printValue(*slot);
                     writef(" ]");
                 }
-                writefln("");
-                lox_debug.disassembleInstruction(&frame.fn.c, frame.ip - frame.fn.c.code.ptr);
+                writeln("");
+                lox_debug.disassembleInstruction(&frame.closure.fn.c,
+                        frame.ip - frame.closure.fn.c.code.ptr);
             }
             ubyte inst;
             switch (inst = readByte())
@@ -285,6 +290,14 @@ struct VM
                     this.runtimeError("Undefined variable '%s'.", fromStringz(name.chars));
                     return InterpretResult.RuntimeError;
                 }
+                break;
+            case OpCode.GetUpvalue:
+                ubyte slot = readByte();
+                this.push(*frame.closure.upvalues[slot].location);
+                break;
+            case OpCode.SetUpvalue:
+                ubyte slot = readByte();
+                *frame.closure.upvalues[slot].location = this.peek(0);
                 break;
             case OpCode.Equal:
                 Value b = this.pop();
@@ -353,7 +366,7 @@ struct VM
                 break;
             case OpCode.Print:
                 printValue(this.pop());
-                writefln("");
+                writeln("");
                 break;
             case OpCode.Jump:
                 ushort offset = readShort();
@@ -378,8 +391,31 @@ struct VM
                 }
                 frame = &this.frames[this.frameCount - 1];
                 break;
+            case OpCode.Closure:
+                ObjFunction* fn = readConstant().obj.asFunction();
+                ObjClosure* cl = ObjClosure.create(fn);
+                this.push(Value(&cl.obj));
+                for (int i = 0; i < cl.upvalueCount; i++)
+                {
+                    ubyte isLocal = readByte();
+                    ubyte index = readByte();
+                    if (isLocal == 1)
+                    {
+                        cl.upvalues[i] = this.captureUpvalue(frame.slots + index);
+                    }
+                    else
+                    {
+                        cl.upvalues[i] = frame.closure.upvalues[index];
+                    }
+                }
+                break;
+            case OpCode.CloseUpvalue:
+                this.closeUpvalues(this.stackTop - 1);
+                this.pop();
+                break;
             case OpCode.Return:
                 Value result = this.pop();
+                this.closeUpvalues(frame.slots);
                 this.frameCount -= 1;
                 if (this.frameCount == 0)
                 {
@@ -419,14 +455,12 @@ struct VM
         if (callee.valType == ValueType.Obj)
         {
             Obj* callObj = callee.obj;
-            auto s = callObj.asString();
-            auto n = callObj.asNative();
-            auto f = callObj.asFunction();
+            ObjType t = callObj.objType;
             switch (callObj.objType)
             {
-            case ObjType.Function:
-                ObjFunction* callFnObj = callObj.asFunction();
-                return call(callFnObj, argCount);
+            case ObjType.Closure:
+                ObjClosure* callClObj = callObj.asClosure();
+                return call(callClObj, argCount);
                 break;
             case ObjType.Native:
                 ObjNative* nativeObj = callObj.asNative();
@@ -443,11 +477,49 @@ struct VM
         return false;
     }
 
-    private bool call(ObjFunction* fn, int argCount)
+    private ObjUpvalue* captureUpvalue(Value* local)
     {
-        if (argCount != fn.arity)
+        ObjUpvalue* prev = null;
+        ObjUpvalue* upv = this.openUpvalues;
+        while (upv != null && upv.location > local)
         {
-            this.runtimeError("Expected %d arguments but got %d.", fn.arity, argCount);
+            prev = upv;
+            upv = upv.next;
+        }
+        if (upv != null && upv.location == local)
+        {
+            return upv;
+        }
+
+        ObjUpvalue* createdUpvalue = ObjUpvalue.create(local);
+        createdUpvalue.next = upv;
+        if (prev == null)
+        {
+            this.openUpvalues = createdUpvalue;
+        }
+        else
+        {
+            prev.next = createdUpvalue;
+        }
+        return createdUpvalue;
+    }
+
+    private void closeUpvalues(Value* last)
+    {
+        while (this.openUpvalues != null && this.openUpvalues.location >= last)
+        {
+            ObjUpvalue* upv = this.openUpvalues;
+            upv.closed = *upv.location;
+            upv.location = &upv.closed;
+            this.openUpvalues = upv.next;
+        }
+    }
+
+    private bool call(ObjClosure* cl, int argCount)
+    {
+        if (argCount != cl.fn.arity)
+        {
+            this.runtimeError("Expected %d arguments but got %d.", cl.fn.arity, argCount);
             return false;
         }
 
@@ -458,8 +530,8 @@ struct VM
         }
 
         CallFrame* frame = &this.frames[this.frameCount++];
-        frame.fn = fn;
-        frame.ip = &fn.c.code[0];
+        frame.closure = cl;
+        frame.ip = &cl.fn.c.code[0];
         frame.slots = this.stackTop - argCount - 1;
         return true;
     }

@@ -90,6 +90,13 @@ struct Local
 {
     Token name;
     int depth;
+    bool isCaptured;
+}
+
+struct Upvalue
+{
+    ubyte idx;
+    bool isLocal;
 }
 
 enum FunctionType
@@ -110,6 +117,7 @@ struct Compiler
 
     Local[ubyte.max + 1] locals;
     size_t localCount = 0;
+    Upvalue[ubyte.max + 1] upvalues;
     int scopeDepth = 0;
 
     this(FunctionType ftype, Compiler* enc)
@@ -134,6 +142,7 @@ struct Compiler
 
         Local* local = &this.locals[this.localCount++];
         local.depth = 0;
+        local.isCaptured = false;
         local.name.lexeme = "";
     }
 
@@ -147,6 +156,11 @@ struct Compiler
             Compiler.declaration(&this);
         }
         ObjFunction* eFn = this.end();
+        version (DebugPrintCode)
+        {
+            writeln("END COMPILATION");
+            writeln("");
+        }
         return this.parser.hadError ? null : eFn;
     }
 
@@ -276,7 +290,14 @@ struct Compiler
 
         while ((this.localCount > 0) && (this.locals[this.localCount - 1].depth > this.scopeDepth))
         {
-            this.emitByte(OpCode.Pop);
+            if (this.locals[this.localCount - 1].isCaptured)
+            {
+                this.emitByte(OpCode.CloseUpvalue);
+            }
+            else
+            {
+                this.emitByte(OpCode.Pop);
+            }
             this.localCount -= 1;
         }
     }
@@ -403,26 +424,71 @@ struct Compiler
         Local* local = &this.locals[this.localCount++];
         local.name = name;
         local.depth = -1;
+        local.isCaptured = false;
     }
 
     private int resolveLocal(Token* name)
     {
-        if (this.localCount > 0)
+        for (int idx = to!int(this.localCount) - 1; idx >= 0; idx--)
         {
-            for (int idx = to!int(this.localCount - 1); idx >= 0; idx--)
+            Local* local = &this.locals[idx];
+            if (this.identifiersEqual(name, &local.name))
             {
-                Local* local = &this.locals[idx];
-                if (this.identifiersEqual(name, &local.name))
+                if (local.depth == -1)
                 {
-                    if (local.depth == -1)
-                    {
-                        this.error("Can't read local variable in its own initializer.");
-                    }
-                    return idx;
+                    this.error("Can't read local variable in its own initializer.");
                 }
+                return idx;
             }
         }
         return -1;
+    }
+
+    private int resolveUpvalue(Token* name)
+    {
+        if (this.enclosing == null)
+        {
+            return -1;
+        }
+
+        int local = this.enclosing.resolveLocal(name);
+        if (local != -1)
+        {
+            this.enclosing.locals[local].isCaptured = true;
+            return this.addUpvalue(to!ubyte(local), true);
+        }
+
+        int upvalue = this.enclosing.resolveUpvalue(name);
+        if (upvalue != -1)
+        {
+            return this.addUpvalue(to!ubyte(upvalue), false);
+        }
+
+        return -1;
+    }
+
+    private int addUpvalue(ubyte idx, bool isLocal)
+    {
+        size_t upvalueCount = this.fn.upvalueCount;
+
+        for (int i = 0; i < upvalueCount; i++)
+        {
+            Upvalue* upv = &this.upvalues[i];
+            if (upv.idx == idx && upv.isLocal == isLocal)
+            {
+                return i;
+            }
+        }
+
+        if (upvalueCount == ubyte.max + 1)
+        {
+            this.error("Too many closure variables in function.");
+            return 0;
+        }
+
+        this.upvalues[upvalueCount].isLocal = isLocal;
+        this.upvalues[upvalueCount].idx = idx;
+        return to!int(this.fn.upvalueCount++);
     }
 
     private ubyte identifierConstant(Token* name)
@@ -474,7 +540,13 @@ struct Compiler
         compiler.block();
 
         ObjFunction* emFn = compiler.end();
-        this.emitBytes(OpCode.Constant, this.makeConstant(Value(&emFn.obj)));
+        this.emitBytes(OpCode.Closure, this.makeConstant(Value(&emFn.obj)));
+
+        for (int i = 0; i < emFn.upvalueCount; i++)
+        {
+            this.emitByte(compiler.upvalues[i].isLocal ? 1 : 0);
+            this.emitByte(compiler.upvalues[i].idx);
+        }
     }
 
     private void block()
@@ -728,6 +800,11 @@ struct Compiler
         {
             getOp = OpCode.GetLocal;
             setOp = OpCode.SetLocal;
+        }
+        else if ((arg = self.resolveUpvalue(&name)) != -1)
+        {
+            getOp = OpCode.GetUpvalue;
+            setOp = OpCode.SetUpvalue;
         }
         else
         {
