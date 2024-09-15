@@ -1,9 +1,8 @@
 module memory;
 
 import core.exception : OutOfMemoryError;
-import core.memory : GC;
-
-// TODO: use memset to clear out memory (search for "calloc")
+static import core.stdc.stdlib;
+static import core.stdc.string;
 
 void collectGarbage() {
 
@@ -11,12 +10,19 @@ void collectGarbage() {
 
 void* reallocate(void* pointer, size_t oldSize, size_t newSize) {
     if (newSize == 0) {
-        GC.free(pointer);
+        core.stdc.stdlib.free(pointer);
         return null;
     }
 
-    void* res = GC.realloc(pointer, newSize); // throws on OutOfMemory
+    void* res = core.stdc.stdlib.realloc(pointer, newSize);
+    if (res == null) {
+        throw new OutOfMemoryError();
+    }
     return res;
+}
+
+void clear(void* pointer, size_t size) {
+    core.stdc.string.memset(pointer, 0x0, size);
 }
 
 void free(T)(void* pointer) {

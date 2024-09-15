@@ -152,10 +152,7 @@ struct ObjClosure
         clRet.fn = fn;
         clRet.upvalueCount = fn.upvalueCount;
         clRet.upvalues = cast(ObjUpvalue**) memory.reallocate(null, 0, (ObjUpvalue*).sizeof * fn.upvalueCount);
-        // calloc
-        for (size_t i=0; i < clRet.upvalueCount; i++) {
-            clRet.upvalues[i] = null;
-        }
+        memory.clear(clRet.upvalues, (ObjUpvalue*).sizeof * fn.upvalueCount);
         return clRet;
     }
 }
@@ -228,10 +225,7 @@ struct ObjString
         VM.instance.strings.set(strRet, Value.nil());
         strRet.chars = cast(char*) memory.reallocate(null, 0, length + 1);
         strRet.length = length;
-        // calloc
-        for (size_t i=0; i < length + 1; i++) {
-            strRet.chars[i] = 0;
-        }
+        memory.clear(strRet.chars, length + 1);
         return strRet;
     }
 
