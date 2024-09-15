@@ -10,8 +10,7 @@ import chunk : Chunk;
 import table : Table;
 static import memory;
 
-enum ObjType
-{
+enum ObjType {
     BoundMethod,
     Class,
     Instance,
@@ -22,37 +21,30 @@ enum ObjType
     Upvalue,
 }
 
-struct Obj
-{
+struct Obj {
     ObjType objType;
     bool isMarked;
     Obj* next = null;
 
-    private static Obj* allocateObject(size_t size, ObjType objType)
-    {
+    private static Obj* allocateObject(size_t size, ObjType objType) {
         Obj* ret = cast(Obj*) memory.reallocate(null, 0, size);
         ret.objType = objType;
         ret.isMarked = false;
         ret.next = VM.instance.objects;
         VM.instance.objects = ret;
-        version (DebugLogGC)
-        {
+        version (DebugLogGC) {
             writefln("%x allocate %u for %s", ret, size, to!string(ret.objType));
         }
         return ret;
     }
 
-    void free()
-    {
-        version (DebugLogGC)
-        {
+    void free() {
+        version (DebugLogGC) {
             writef("%x free type %s", &this, to!string(this.objType));
-            if (this.objType == ObjType.String)
-            {
+            if (this.objType == ObjType.String) {
                 ObjString* str = this.as!ObjString();
                 size_t printLen = str.length;
-                if (printLen > 10)
-                {
+                if (printLen > 10) {
                     printLen = 10;
                 }
                 writef(" (\"%s%s\")", fromStringz(str.chars[0 .. printLen]),
@@ -61,8 +53,7 @@ struct Obj
             writeln("");
         }
 
-        switch (this.objType)
-        {
+        switch (this.objType) {
         case ObjType.BoundMethod:
             memory.free!ObjBoundMethod(&this);
             break;
@@ -101,10 +92,8 @@ struct Obj
         }
     }
 
-    void print()
-    {
-        switch (this.objType)
-        {
+    void print() {
+        switch (this.objType) {
         case ObjType.BoundMethod:
             this.as!ObjBoundMethod().method.fn.obj.print();
             break;
@@ -120,8 +109,7 @@ struct Obj
             break;
         case ObjType.Function:
             ObjFunction* fn = this.as!ObjFunction();
-            if (fn.name == null)
-            {
+            if (fn.name == null) {
                 writef("<script>");
                 return;
             }
@@ -141,20 +129,17 @@ struct Obj
         }
     }
 
-    pragma(inline) T* as(T)()
-    {
+    pragma(inline) T* as(T)() {
         return cast(T*)&this;
     }
 }
 
-struct ObjClass
-{
+struct ObjClass {
     Obj obj;
     ObjString* name;
     Table methods;
 
-    static ObjClass* create(ObjString* name)
-    {
+    static ObjClass* create(ObjString* name) {
         Obj* ret = Obj.allocateObject(ObjClass.sizeof, ObjType.Class);
         ObjClass* kRet = ret.as!ObjClass();
         kRet.name = name;
@@ -162,14 +147,12 @@ struct ObjClass
     }
 }
 
-struct ObjInstance
-{
+struct ObjInstance {
     Obj obj;
     ObjClass* klass;
     Table fields;
 
-    static ObjInstance* create(ObjClass* klass)
-    {
+    static ObjInstance* create(ObjClass* klass) {
         Obj* ret = Obj.allocateObject(ObjInstance.sizeof, ObjType.Instance);
         ObjInstance* iRet = ret.as!ObjInstance();
         iRet.klass = klass;
@@ -177,14 +160,12 @@ struct ObjInstance
     }
 }
 
-struct ObjBoundMethod
-{
+struct ObjBoundMethod {
     Obj obj;
     Value receiver;
     ObjClosure* method;
 
-    static ObjBoundMethod* create(Value receiver, ObjClosure* method)
-    {
+    static ObjBoundMethod* create(Value receiver, ObjClosure* method) {
         Obj* ret = Obj.allocateObject(ObjBoundMethod.sizeof, ObjType.BoundMethod);
         ObjBoundMethod* bmRet = ret.as!ObjBoundMethod();
         bmRet.receiver = receiver;
@@ -193,15 +174,13 @@ struct ObjBoundMethod
     }
 }
 
-struct ObjClosure
-{
+struct ObjClosure {
     Obj obj;
     ObjFunction* fn;
     ObjUpvalue** upvalues;
     size_t upvalueCount;
 
-    static ObjClosure* create(ObjFunction* fn)
-    {
+    static ObjClosure* create(ObjFunction* fn) {
         Obj* ret = Obj.allocateObject(ObjClosure.sizeof, ObjType.Closure);
         ObjClosure* clRet = ret.as!ObjClosure();
         clRet.fn = fn;
@@ -213,16 +192,14 @@ struct ObjClosure
     }
 }
 
-struct ObjFunction
-{
+struct ObjFunction {
     Obj obj;
     size_t arity = 0;
     size_t upvalueCount = 0;
     Chunk c;
     ObjString* name = null;
 
-    static ObjFunction* create()
-    {
+    static ObjFunction* create() {
         Obj* ret = Obj.allocateObject(ObjFunction.sizeof, ObjType.Function);
         ObjFunction* fnRet = ret.as!ObjFunction();
         fnRet.arity = 0;
@@ -234,13 +211,11 @@ struct ObjFunction
 
 alias NativeFn = Value function(int argCount, Value* args);
 
-struct ObjNative
-{
+struct ObjNative {
     Obj obj;
     NativeFn fn;
 
-    static ObjNative* create(NativeFn fn)
-    {
+    static ObjNative* create(NativeFn fn) {
         Obj* ret = Obj.allocateObject(ObjNative.sizeof, ObjType.Native);
         ObjNative* nvRet = ret.as!ObjNative();
         nvRet.fn = fn;
@@ -248,33 +223,28 @@ struct ObjNative
     }
 }
 
-struct ObjString
-{
+struct ObjString {
     Obj obj;
     size_t length;
     char* chars;
     uint hash;
 
-    static ObjString* fromCopyOf(string input)
-    {
+    static ObjString* fromCopyOf(string input) {
         uint inHash = hashString(input);
         ObjString* interned = VM.instance.strings.findString(input, inHash);
-        if (interned != null)
-        {
+        if (interned != null) {
             return interned;
         }
         ObjString* ret = ObjString.allocateString(input.length, inHash);
 
-        foreach (idx, c; input)
-        {
+        foreach (idx, c; input) {
             ret.chars[idx] = c;
         }
 
         return ret;
     }
 
-    static ObjString* allocateString(size_t length, uint hash)
-    {
+    static ObjString* allocateString(size_t length, uint hash) {
         Obj* ret = Obj.allocateObject(ObjString.sizeof, ObjType.String);
         ObjString* strRet = ret.as!ObjString();
         strRet.hash = hash;
@@ -288,16 +258,13 @@ struct ObjString
         return strRet;
     }
 
-    static uint hashString(string s)
-    {
+    static uint hashString(string s) {
         return hashString(s.ptr, s.length);
     }
 
-    static uint hashString(immutable(char)* c, size_t len)
-    {
+    static uint hashString(immutable(char)* c, size_t len) {
         uint h = 2_166_136_261;
-        for (size_t i = 0; i < len; i++)
-        {
+        for (size_t i = 0; i < len; i++) {
             h ^= c[i];
             h *= 16_777_619;
         }
@@ -305,15 +272,13 @@ struct ObjString
     }
 }
 
-struct ObjUpvalue
-{
+struct ObjUpvalue {
     Obj obj;
     Value* location;
     Value closed;
     ObjUpvalue* next;
 
-    static ObjUpvalue* create(Value* slot)
-    {
+    static ObjUpvalue* create(Value* slot) {
         Obj* ret = Obj.allocateObject(ObjUpvalue.sizeof, ObjType.Upvalue);
         ObjUpvalue* upvRet = ret.as!ObjUpvalue();
         upvRet.closed = Value.nil();

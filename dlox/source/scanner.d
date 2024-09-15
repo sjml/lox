@@ -1,7 +1,6 @@
 module scanner;
 
-enum TokenType
-{
+enum TokenType {
     // single-character
     LeftParen,
     RightParen,
@@ -52,57 +51,48 @@ enum TokenType
     EndOfFile,
 }
 
-struct Token
-{
+struct Token {
     TokenType tokType;
     string lexeme;
     size_t line;
 }
 
-struct Scanner
-{
+struct Scanner {
     string source;
     immutable(char)* start = null;
     immutable(char)* current = null;
     size_t line;
 
-    void setup(string source)
-    {
+    void setup(string source) {
         this.source = source;
         this.start = source.ptr;
         this.current = this.start;
         this.line = 1;
     }
 
-    Token scanToken()
-    {
-        if (this.isAtEnd())
-        {
+    Token scanToken() {
+        if (this.isAtEnd()) {
             return this.makeToken(TokenType.EndOfFile);
         }
 
         this.skipWhitespaceAndComments();
         this.start = this.current;
 
-        if (this.isAtEnd())
-        {
+        if (this.isAtEnd()) {
             return this.makeToken(TokenType.EndOfFile);
         }
 
         char c = this.advance();
 
-        if (this.isDigit(c))
-        {
+        if (this.isDigit(c)) {
             return this.number();
         }
 
-        if (this.isAlpha(c))
-        {
+        if (this.isAlpha(c)) {
             return this.identifier();
         }
 
-        switch (c)
-        {
+        switch (c) {
         case '(':
             return this.makeToken(TokenType.LeftParen);
         case ')':
@@ -141,34 +131,28 @@ struct Scanner
         }
     }
 
-    private bool isAtEnd()
-    {
+    private bool isAtEnd() {
         return this.current - this.source.ptr >= this.source.length;
         // return *this.current == '\0';
     }
 
-    private char advance()
-    {
+    private char advance() {
         this.current++;
         return this.current[-1];
     }
 
-    private char peek()
-    {
+    private char peek() {
         return *this.current;
     }
 
-    private char peekNext()
-    {
-        if (this.isAtEnd())
-        {
+    private char peekNext() {
+        if (this.isAtEnd()) {
             return '\0';
         }
         return this.current[1];
     }
 
-    private bool match(char expected)
-    {
+    private bool match(char expected) {
         if (this.isAtEnd())
             return false;
         if (*this.current != expected)
@@ -177,39 +161,30 @@ struct Scanner
         return true;
     }
 
-    private bool isDigit(char c)
-    {
+    private bool isDigit(char c) {
         return c >= '0' && c <= '9';
     }
 
-    private bool isAlpha(char c)
-    {
+    private bool isAlpha(char c) {
         return ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_');
     }
 
-    private TokenType checkKeyword(size_t start, string rest, TokenType tokType)
-    {
-        if (this.current - this.start != start + rest.length)
-        {
+    private TokenType checkKeyword(size_t start, string rest, TokenType tokType) {
+        if (this.current - this.start != start + rest.length) {
             return TokenType.Identifier;
         }
-        for (size_t i = 0; i < rest.length; i++)
-        {
-            if (this.start[start + i] != rest[i])
-            {
+        for (size_t i = 0; i < rest.length; i++) {
+            if (this.start[start + i] != rest[i]) {
                 return TokenType.Identifier;
             }
         }
         return tokType;
     }
 
-    private void skipWhitespaceAndComments()
-    {
-        while (true)
-        {
+    private void skipWhitespaceAndComments() {
+        while (true) {
             char c = this.peek();
-            switch (c)
-            {
+            switch (c) {
             case ' ', '\r', '\t':
                 this.advance();
                 break;
@@ -218,15 +193,11 @@ struct Scanner
                 this.advance();
                 break;
             case '/':
-                if (this.peekNext() == '/')
-                {
-                    while (this.peek() != '\n' && !this.isAtEnd())
-                    {
+                if (this.peekNext() == '/') {
+                    while (this.peek() != '\n' && !this.isAtEnd()) {
                         this.advance();
                     }
-                }
-                else
-                {
+                } else {
                     return;
                 }
                 break;
@@ -236,19 +207,15 @@ struct Scanner
         }
     }
 
-    private Token sstring()
-    {
-        while (this.peek() != '"' && !this.isAtEnd())
-        {
-            if (this.peek() == '\n')
-            {
+    private Token sstring() {
+        while (this.peek() != '"' && !this.isAtEnd()) {
+            if (this.peek() == '\n') {
                 this.line++;
             }
             this.advance();
         }
 
-        if (this.isAtEnd())
-        {
+        if (this.isAtEnd()) {
             return this.errorToken("Unterminated string.");
         }
 
@@ -256,18 +223,14 @@ struct Scanner
         return this.makeToken(TokenType.String);
     }
 
-    private Token number()
-    {
-        while (this.isDigit(this.peek()))
-        {
+    private Token number() {
+        while (this.isDigit(this.peek())) {
             this.advance();
         }
 
-        if (this.peek() == '.' && this.isDigit(this.peekNext()))
-        {
+        if (this.peek() == '.' && this.isDigit(this.peekNext())) {
             this.advance();
-            while (this.isDigit(this.peek()))
-            {
+            while (this.isDigit(this.peek())) {
                 this.advance();
             }
         }
@@ -275,10 +238,8 @@ struct Scanner
         return this.makeToken(TokenType.Number);
     }
 
-    private TokenType identifierType()
-    {
-        switch (this.start[0])
-        {
+    private TokenType identifierType() {
+        switch (this.start[0]) {
         case 'a':
             return this.checkKeyword(1, "nd", TokenType.And);
         case 'c':
@@ -286,10 +247,8 @@ struct Scanner
         case 'e':
             return this.checkKeyword(1, "lse", TokenType.Else);
         case 'f':
-            if (this.current - this.start > 1)
-            {
-                switch (this.start[1])
-                {
+            if (this.current - this.start > 1) {
+                switch (this.start[1]) {
                 case 'a':
                     return this.checkKeyword(2, "lse", TokenType.False);
                 case 'o':
@@ -314,10 +273,8 @@ struct Scanner
         case 's':
             return this.checkKeyword(1, "uper", TokenType.Super);
         case 't':
-            if (this.current - this.start > 1)
-            {
-                switch (this.start[1])
-                {
+            if (this.current - this.start > 1) {
+                switch (this.start[1]) {
                 case 'h':
                     return this.checkKeyword(2, "is", TokenType.This);
                 case 'r':
@@ -338,17 +295,14 @@ struct Scanner
         return TokenType.Identifier;
     }
 
-    private Token identifier()
-    {
-        while (this.isAlpha(this.peek()) || this.isDigit(this.peek()))
-        {
+    private Token identifier() {
+        while (this.isAlpha(this.peek()) || this.isDigit(this.peek())) {
             this.advance();
         }
         return this.makeToken(this.identifierType());
     }
 
-    private Token makeToken(TokenType type)
-    {
+    private Token makeToken(TokenType type) {
         Token tok;
         tok.tokType = type;
         tok.lexeme = this.start[0 .. (this.current - this.start)];
@@ -356,8 +310,7 @@ struct Scanner
         return tok;
     }
 
-    private Token errorToken(string message)
-    {
+    private Token errorToken(string message) {
         Token tok;
         tok.tokType = TokenType.Error;
         tok.lexeme = message;

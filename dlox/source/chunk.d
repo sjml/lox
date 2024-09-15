@@ -6,8 +6,7 @@ import value : Value, ValueArray;
 import memory : growCapacity;
 import vm : VM;
 
-enum OpCode
-{
+enum OpCode {
     Constant,
     Nil,
     True,
@@ -44,17 +43,14 @@ enum OpCode
     Method,
 }
 
-struct Chunk
-{
+struct Chunk {
     size_t count = 0;
     ubyte[] code;
     size_t[] lineNumbers;
     ValueArray constants;
 
-    void write(ubyte data, size_t line)
-    {
-        if (this.code.length < this.count + 1)
-        {
+    void write(ubyte data, size_t line) {
+        if (this.code.length < this.count + 1) {
             this.code.length = growCapacity(this.code.length);
             this.lineNumbers.length = this.code.length;
         }
@@ -63,16 +59,14 @@ struct Chunk
         this.count += 1;
     }
 
-    size_t addConstant(Value val)
-    {
+    size_t addConstant(Value val) {
         VM.instance.push(val);
         this.constants.add(val);
         VM.instance.pop();
         return this.constants.count - 1;
     }
 
-    void free()
-    {
+    void free() {
         this.code.length = 0;
         this.lineNumbers.length = 0;
         this.count = 0;

@@ -6,53 +6,44 @@ import std.algorithm.comparison : equal;
 import memory : growCapacity;
 import lobj : Obj, ObjType, ObjString;
 
-enum ValueType
-{
+enum ValueType {
     Boolean,
     Nil,
     Number,
     Obj,
 }
 
-struct Value
-{
+struct Value {
     ValueType valType;
-    union
-    {
+    union {
         bool boolean;
         double number;
         Obj* obj;
     }
 
-    this(bool b)
-    {
+    this(bool b) {
         this.valType = ValueType.Boolean;
         this.boolean = b;
     }
 
-    this(double n)
-    {
+    this(double n) {
         this.valType = ValueType.Number;
         this.number = n;
     }
 
-    this(Obj* o)
-    {
+    this(Obj* o) {
         this.valType = ValueType.Obj;
         this.obj = o;
     }
 
-    static Value nil()
-    {
+    static Value nil() {
         Value v = Value();
         v.valType = ValueType.Nil;
         return v;
     }
 
-    void print()
-    {
-        switch (this.valType)
-        {
+    void print() {
+        switch (this.valType) {
         case ValueType.Boolean:
             writef(this.boolean ? "true" : "false");
             break;
@@ -70,14 +61,11 @@ struct Value
         }
     }
 
-    bool equals(Value other)
-    {
-        if (this.valType != other.valType)
-        {
+    bool equals(Value other) {
+        if (this.valType != other.valType) {
             return false;
         }
-        switch (this.valType)
-        {
+        switch (this.valType) {
         case ValueType.Boolean:
             return this.boolean == other.boolean;
         case ValueType.Nil:
@@ -91,42 +79,34 @@ struct Value
         }
     }
 
-    bool isFalsey()
-    {
-        if (this.valType == ValueType.Nil)
-        {
+    bool isFalsey() {
+        if (this.valType == ValueType.Nil) {
             return true;
         }
-        if (this.valType == ValueType.Boolean)
-        {
+        if (this.valType == ValueType.Boolean) {
             return !this.boolean;
         }
         return false;
     }
 
-    bool isObjType(ObjType ot)
-    {
+    bool isObjType(ObjType ot) {
         return this.valType == ValueType.Obj && this.obj.objType == ot;
     }
 }
 
-struct ValueArray
-{
+struct ValueArray {
     size_t count;
     Value[] values;
 
-    void add(Value val)
-    {
-        if (this.values.length < this.count + 1)
-        {
+    void add(Value val) {
+        if (this.values.length < this.count + 1) {
             this.values.length = growCapacity(this.values.length);
         }
         this.values[this.count] = val;
         this.count += 1;
     }
 
-    void free()
-    {
+    void free() {
         this.values.length = 0;
         this.count = 0;
     }

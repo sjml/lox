@@ -5,31 +5,24 @@ import std.stdio;
 import chunk : Chunk, OpCode;
 import lobj;
 
-void disassembleChunk(Chunk* chunk, string name)
-{
+void disassembleChunk(Chunk* chunk, string name) {
     writefln("== %s ==", name);
 
-    for (size_t idx = 0; idx < chunk.count;)
-    {
+    for (size_t idx = 0; idx < chunk.count;) {
         idx = disassembleInstruction(chunk, idx);
     }
 }
 
-size_t disassembleInstruction(Chunk* chunk, size_t offset)
-{
+size_t disassembleInstruction(Chunk* chunk, size_t offset) {
     writef("%04d ", offset);
-    if (offset > 0 && chunk.lineNumbers[offset] == chunk.lineNumbers[offset - 1])
-    {
+    if (offset > 0 && chunk.lineNumbers[offset] == chunk.lineNumbers[offset - 1]) {
         writef("   | ");
-    }
-    else
-    {
+    } else {
         writef("%4d ", chunk.lineNumbers[offset]);
     }
 
     ubyte inst = chunk.code[offset];
-    switch (inst)
-    {
+    switch (inst) {
     case OpCode.Constant:
         return constantInstruction("OP_CONSTANT", chunk, offset);
     case OpCode.Nil:
@@ -96,8 +89,7 @@ size_t disassembleInstruction(Chunk* chunk, size_t offset)
         writeln("");
 
         ObjFunction* fn = chunk.constants.values[constIdx].obj.as!ObjFunction();
-        for (size_t _ = 0; _ < fn.upvalueCount; _++)
-        {
+        for (size_t _ = 0; _ < fn.upvalueCount; _++) {
             ubyte isLocal = chunk.code[offset++];
             ubyte idx = chunk.code[offset++];
             writefln("%04d      |                     %s %d", offset - 2,
@@ -119,14 +111,12 @@ size_t disassembleInstruction(Chunk* chunk, size_t offset)
     }
 }
 
-size_t simpleInstruction(string name, size_t offset)
-{
+size_t simpleInstruction(string name, size_t offset) {
     writefln("%s", name);
     return offset + 1;
 }
 
-size_t constantInstruction(string name, Chunk* chunk, size_t offset)
-{
+size_t constantInstruction(string name, Chunk* chunk, size_t offset) {
     ubyte constantIdx = chunk.code[offset + 1];
     writef("%-16s %4d '", name, constantIdx);
     chunk.constants.values[constantIdx].print();
@@ -134,23 +124,20 @@ size_t constantInstruction(string name, Chunk* chunk, size_t offset)
     return offset + 2;
 }
 
-size_t byteInstruction(string name, Chunk* chunk, size_t offset)
-{
+size_t byteInstruction(string name, Chunk* chunk, size_t offset) {
     ubyte slot = chunk.code[offset + 1];
     writefln("%-16s %4d", name, slot);
     return offset + 2;
 }
 
-size_t jumpInstruction(string name, int sign, Chunk* chunk, size_t offset)
-{
+size_t jumpInstruction(string name, int sign, Chunk* chunk, size_t offset) {
     ushort jump = chunk.code[offset + 1] << 8;
     jump |= chunk.code[offset + 2];
     writefln("%-16s %4d -> %d", name, offset, offset + 3 + sign * jump);
     return offset + 3;
 }
 
-size_t invokeInstruction(string name, Chunk* chunk, size_t offset)
-{
+size_t invokeInstruction(string name, Chunk* chunk, size_t offset) {
     ubyte constIdx = chunk.code[offset + 1];
     ubyte argCount = chunk.code[offset + 2];
     writef("%-16s (%d args) %4d '", name, argCount, constIdx);

@@ -6,14 +6,12 @@ import vm : VM, InterpretResult;
 import chunk : Chunk, OpCode;
 import lox_debug;
 
-int main(string[] args)
-{
+int main(string[] args) {
     VM.setup();
     scope (exit)
         VM.teardown();
 
-    switch (args.length)
-    {
+    switch (args.length) {
     case 1:
         return repl();
         break;
@@ -28,14 +26,11 @@ int main(string[] args)
     return 0;
 }
 
-int repl()
-{
-    while (true)
-    {
+int repl() {
+    while (true) {
         writef("> ");
         string line = stdin.readln();
-        if (line.length == 0)
-        {
+        if (line.length == 0) {
             writef("\nExiting...\n");
             break;
         }
@@ -45,13 +40,11 @@ int repl()
     return 0;
 }
 
-int runFile(string path)
-{
+int runFile(string path) {
     string source = readText(path);
     InterpretResult result = VM.interpret(source);
 
-    switch (result)
-    {
+    switch (result) {
     case InterpretResult.CompileError:
         return 65;
     case InterpretResult.RuntimeError:

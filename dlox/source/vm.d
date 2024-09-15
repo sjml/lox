@@ -15,15 +15,13 @@ import lobj;
 import table : Table;
 import lox_debug;
 
-enum InterpretResult
-{
+enum InterpretResult {
     Ok,
     CompileError,
     RuntimeError,
 }
 
-enum BinaryOperator
-{
+enum BinaryOperator {
     Add,
     Subtract,
     Multiply,
@@ -35,20 +33,17 @@ enum BinaryOperator
 static const FRAMES_MAX = 64;
 static const STACK_MAX = FRAMES_MAX * (ubyte.max + 1);
 
-struct CallFrame
-{
+struct CallFrame {
     ObjClosure* closure;
     ubyte* ip;
     Value* slots;
 }
 
-static Value clockNative(int argCount, Value* args)
-{
+static Value clockNative(int argCount, Value* args) {
     return Value(to!double(clock()) / to!double(CLOCKS_PER_SEC));
 }
 
-struct VM
-{
+struct VM {
     CallFrame[FRAMES_MAX] frames;
     size_t frameCount;
     Value[STACK_MAX] stack;
@@ -67,8 +62,7 @@ struct VM
     Compiler* currentCompiler;
     static VM* instance = null;
 
-    static void setup()
-    {
+    static void setup() {
         VM.instance = new VM();
         VM.instance.compiler = Compiler(FunctionType.Script, null);
         VM.instance.currentCompiler = &VM.instance.compiler;
@@ -79,8 +73,7 @@ struct VM
         VM.instance.defineNative("clock", &clockNative);
     }
 
-    static void teardown()
-    {
+    static void teardown() {
         VM.instance.globals.free();
         VM.instance.strings.free();
         // VM.instance.initString.obj.free(); // this gets freed with the objects, right?
@@ -89,40 +82,32 @@ struct VM
         VM.instance = null;
     }
 
-    private void resetStack()
-    {
+    private void resetStack() {
         this.stackTop = stack.ptr;
         this.frameCount = 0;
         this.openUpvalues = null;
     }
 
-    private void freeObjects()
-    {
+    private void freeObjects() {
         Obj* o = this.objects;
-        while (o != null)
-        {
+        while (o != null) {
             Obj* next = o.next;
             o.free();
             o = next;
         }
     }
 
-    private void runtimeError(T...)(T args)
-    {
+    private void runtimeError(T...)(T args) {
         stderr.writefln(args);
 
-        for (int i = to!int(this.frameCount) - 1; i >= 0; i--)
-        {
+        for (int i = to!int(this.frameCount) - 1; i >= 0; i--) {
             CallFrame* frame = &this.frames[i];
             ObjFunction* fn = frame.closure.fn;
             size_t inst = frame.ip - &fn.c.code[0] - 1;
             stderr.writef("[line %d] in ", fn.c.lineNumbers[inst]);
-            if (fn.name == null)
-            {
+            if (fn.name == null) {
                 stderr.writefln("script");
-            }
-            else
-            {
+            } else {
                 stderr.writefln("%s()", fn.name.chars);
             }
         }
@@ -130,8 +115,7 @@ struct VM
         this.resetStack();
     }
 
-    private void defineNative(string name, NativeFn fn)
-    {
+    private void defineNative(string name, NativeFn fn) {
         this.push(Value(&ObjString.fromCopyOf(name).obj));
         this.push(Value(&ObjNative.create(fn).obj));
         this.globals.set(this.stack[0].obj.as!ObjString(), this.stack[1]);
@@ -139,11 +123,9 @@ struct VM
         this.pop();
     }
 
-    static InterpretResult interpret(string source)
-    {
+    static InterpretResult interpret(string source) {
         ObjFunction* cFn = VM.instance.compiler.compile(source);
-        if (cFn == null)
-        {
+        if (cFn == null) {
             return InterpretResult.CompileError;
         }
         VM.instance.push(Value(&cFn.obj));
@@ -155,19 +137,16 @@ struct VM
         return VM.instance.run();
     }
 
-    pragma(inline) private bool binaryNumericOperation(BinaryOperator op)
-    {
+    pragma(inline) private bool binaryNumericOperation(BinaryOperator op) {
         if (!(this.peek(0).valType == ValueType.Number) || !(this.peek(1)
-                .valType == ValueType.Number))
-        {
+                .valType == ValueType.Number)) {
             this.runtimeError("Operands must be numbers.");
             return false;
         }
 
         double b = this.pop().number;
         double a = this.pop().number;
-        switch (op)
-        {
+        switch (op) {
         case BinaryOperator.GreaterThan:
             this.push(Value(a > b));
             break;
@@ -192,19 +171,16 @@ struct VM
         return true;
     }
 
-    pragma(inline) private void concatenateStrings()
-    {
+    pragma(inline) private void concatenateStrings() {
         ObjString* b = this.peek(0).obj.as!ObjString();
         ObjString* a = this.peek(1).obj.as!ObjString();
 
         size_t newLen = a.length + b.length;
         ObjString* newStr = ObjString.allocateString(newLen, 0);
-        for (size_t idx = 0; idx < a.length; idx++)
-        {
+        for (size_t idx = 0; idx < a.length; idx++) {
             newStr.chars[idx] = a.chars[idx];
         }
-        for (size_t idx = 0; idx < b.length; idx++)
-        {
+        for (size_t idx = 0; idx < b.length; idx++) {
             newStr.chars[idx + a.length] = b.chars[idx];
         }
         newStr.chars[newLen] = '\0';
@@ -215,38 +191,30 @@ struct VM
         this.push(Value(cast(Obj*) newStr));
     }
 
-    private InterpretResult run()
-    {
+    private InterpretResult run() {
         CallFrame* frame = &this.frames[this.frameCount - 1];
 
-        pragma(inline) ubyte readByte()
-        {
+        pragma(inline) ubyte readByte() {
             return *frame.ip++;
         }
 
-        pragma(inline) ushort readShort()
-        {
+        pragma(inline) ushort readShort() {
             frame.ip += 2;
             return cast(ushort)(frame.ip[-2] << 8 | frame.ip[-1]);
         }
 
-        pragma(inline) Value readConstant()
-        {
+        pragma(inline) Value readConstant() {
             return frame.closure.fn.c.constants.values[readByte()];
         }
 
-        pragma(inline) ObjString* readString()
-        {
+        pragma(inline) ObjString* readString() {
             return readConstant().obj.as!ObjString();
         }
 
-        while (true)
-        {
-            version (DebugTraceExecution)
-            {
+        while (true) {
+            version (DebugTraceExecution) {
                 writef("          ");
-                for (Value* slot = this.stack.ptr; slot < this.stackTop; slot++)
-                {
+                for (Value* slot = this.stack.ptr; slot < this.stackTop; slot++) {
                     writef("[ ");
                     slot.print();
                     writef(" ]");
@@ -256,8 +224,7 @@ struct VM
                         frame.ip - frame.closure.fn.c.code.ptr);
             }
             ubyte inst;
-            switch (inst = readByte())
-            {
+            switch (inst = readByte()) {
             case OpCode.Constant:
                 Value constant = readConstant();
                 this.push(constant);
@@ -285,8 +252,7 @@ struct VM
             case OpCode.GetGlobal:
                 ObjString* name = readString();
                 Value val;
-                if (!this.globals.get(name, &val))
-                {
+                if (!this.globals.get(name, &val)) {
                     this.runtimeError("Undefined variable '%s'.", fromStringz(name.chars));
                     return InterpretResult.RuntimeError;
                 }
@@ -299,8 +265,7 @@ struct VM
                 break;
             case OpCode.SetGlobal:
                 ObjString* name = readString();
-                if (this.globals.set(name, this.peek(0)))
-                {
+                if (this.globals.set(name, this.peek(0))) {
                     this.globals.remove(name);
                     this.runtimeError("Undefined variable '%s'.", fromStringz(name.chars));
                     return InterpretResult.RuntimeError;
@@ -316,30 +281,26 @@ struct VM
                 break;
             case OpCode.GetProperty:
                 if (!(this.peek(0)
-                        .valType == ValueType.Obj && this.peek(0).obj.objType == ObjType.Instance))
-                {
+                        .valType == ValueType.Obj && this.peek(0).obj.objType == ObjType.Instance)) {
                     runtimeError("Only instances have properties.");
                     return InterpretResult.RuntimeError;
                 }
                 ObjInstance* ins = this.peek(0).obj.as!ObjInstance();
                 ObjString* name = readString();
                 Value val;
-                if (ins.fields.get(name, &val))
-                {
+                if (ins.fields.get(name, &val)) {
                     this.pop();
                     this.push(val);
                     break;
                 }
 
-                if (!this.bindMethod(ins.klass, name))
-                {
+                if (!this.bindMethod(ins.klass, name)) {
                     return InterpretResult.RuntimeError;
                 }
                 break;
             case OpCode.SetProperty:
                 if (!(this.peek(1)
-                        .valType == ValueType.Obj && this.peek(1).obj.objType == ObjType.Instance))
-                {
+                        .valType == ValueType.Obj && this.peek(1).obj.objType == ObjType.Instance)) {
                     this.runtimeError("Only instances have fields.");
                     return InterpretResult.RuntimeError;
                 }
@@ -355,51 +316,41 @@ struct VM
                 push(Value(a.equals(b)));
                 break;
             case OpCode.Greater:
-                if (!this.binaryNumericOperation(BinaryOperator.GreaterThan))
-                {
+                if (!this.binaryNumericOperation(BinaryOperator.GreaterThan)) {
                     return InterpretResult.RuntimeError;
                 }
                 break;
             case OpCode.Less:
-                if (!this.binaryNumericOperation(BinaryOperator.LessThan))
-                {
+                if (!this.binaryNumericOperation(BinaryOperator.LessThan)) {
                     return InterpretResult.RuntimeError;
                 }
                 break;
             case OpCode.Add:
                 if (this.peek(0).isObjType(ObjType.String)
-                        && (this.peek(1).isObjType(ObjType.String)))
-                {
+                        && (this.peek(1).isObjType(ObjType.String))) {
                     this.concatenateStrings();
-                }
-                else if (this.peek(0).valType == ValueType.Number
-                        && (this.peek(1).valType == ValueType.Number))
-                {
+                } else if (this.peek(0).valType == ValueType.Number
+                        && (this.peek(1).valType == ValueType.Number)) {
                     double b = this.pop().number;
                     double a = this.pop().number;
                     this.push(Value(a + b));
-                }
-                else
-                {
+                } else {
                     this.runtimeError("Operands must be two numbers or two strings.");
                     return InterpretResult.RuntimeError;
                 }
                 break;
             case OpCode.Subtract:
-                if (!this.binaryNumericOperation(BinaryOperator.Subtract))
-                {
+                if (!this.binaryNumericOperation(BinaryOperator.Subtract)) {
                     return InterpretResult.RuntimeError;
                 }
                 break;
             case OpCode.Multiply:
-                if (!this.binaryNumericOperation(BinaryOperator.Multiply))
-                {
+                if (!this.binaryNumericOperation(BinaryOperator.Multiply)) {
                     return InterpretResult.RuntimeError;
                 }
                 break;
             case OpCode.Divide:
-                if (!this.binaryNumericOperation(BinaryOperator.Divide))
-                {
+                if (!this.binaryNumericOperation(BinaryOperator.Divide)) {
                     return InterpretResult.RuntimeError;
                 }
                 break;
@@ -407,8 +358,7 @@ struct VM
                 this.push(Value(pop().isFalsey()));
                 break;
             case OpCode.Negate:
-                if (this.peek(0).valType != ValueType.Number)
-                {
+                if (this.peek(0).valType != ValueType.Number) {
                     this.runtimeError("Operand must be a number.");
                     return InterpretResult.RuntimeError;
                 }
@@ -425,8 +375,7 @@ struct VM
                 break;
             case OpCode.JumpIfFalse:
                 ushort offset = readShort();
-                if (this.peek(0).isFalsey())
-                {
+                if (this.peek(0).isFalsey()) {
                     frame.ip += offset;
                 }
                 break;
@@ -436,8 +385,7 @@ struct VM
                 break;
             case OpCode.Call:
                 ubyte argCount = readByte();
-                if (!this.callValue(this.peek(argCount), argCount))
-                {
+                if (!this.callValue(this.peek(argCount), argCount)) {
                     return InterpretResult.RuntimeError;
                 }
                 frame = &this.frames[this.frameCount - 1];
@@ -445,8 +393,7 @@ struct VM
             case OpCode.Invoke:
                 ObjString* method = readString();
                 ubyte argCount = readByte();
-                if (!invoke(method, argCount))
-                {
+                if (!invoke(method, argCount)) {
                     return InterpretResult.RuntimeError;
                 }
                 frame = &VM.instance.frames[VM.instance.frameCount - 1];
@@ -455,16 +402,12 @@ struct VM
                 ObjFunction* fn = readConstant().obj.as!ObjFunction();
                 ObjClosure* cl = ObjClosure.create(fn);
                 this.push(Value(&cl.obj));
-                for (int i = 0; i < cl.upvalueCount; i++)
-                {
+                for (int i = 0; i < cl.upvalueCount; i++) {
                     ubyte isLocal = readByte();
                     ubyte index = readByte();
-                    if (isLocal == 1)
-                    {
+                    if (isLocal == 1) {
                         cl.upvalues[i] = this.captureUpvalue(frame.slots + index);
-                    }
-                    else
-                    {
+                    } else {
                         cl.upvalues[i] = frame.closure.upvalues[index];
                     }
                 }
@@ -477,8 +420,7 @@ struct VM
                 Value result = this.pop();
                 this.closeUpvalues(frame.slots);
                 this.frameCount -= 1;
-                if (this.frameCount == 0)
-                {
+                if (this.frameCount == 0) {
                     this.pop();
                     return InterpretResult.Ok;
                 }
@@ -499,31 +441,25 @@ struct VM
         }
     }
 
-    void push(Value val)
-    {
+    void push(Value val) {
         *this.stackTop = val;
         this.stackTop++;
     }
 
-    Value pop()
-    {
+    Value pop() {
         this.stackTop--;
         return *this.stackTop;
     }
 
-    private Value peek(int distance)
-    {
+    private Value peek(int distance) {
         return this.stackTop[-1 - distance];
     }
 
-    private bool callValue(Value callee, int argCount)
-    {
-        if (callee.valType == ValueType.Obj)
-        {
+    private bool callValue(Value callee, int argCount) {
+        if (callee.valType == ValueType.Obj) {
             Obj* callObj = callee.obj;
             ObjType t = callObj.objType;
-            switch (callObj.objType)
-            {
+            switch (callObj.objType) {
             case ObjType.BoundMethod:
                 ObjBoundMethod* bm = callee.obj.as!ObjBoundMethod();
                 this.instance.stackTop[-argCount - 1] = bm.receiver;
@@ -532,12 +468,9 @@ struct VM
                 ObjClass* c = callObj.as!ObjClass();
                 this.stackTop[-argCount - 1] = Value(&ObjInstance.create(c).obj);
                 Value initializer;
-                if (c.methods.get(VM.instance.initString, &initializer))
-                {
+                if (c.methods.get(VM.instance.initString, &initializer)) {
                     return call(initializer.obj.as!ObjClosure(), argCount);
-                }
-                else if (argCount != 0)
-                {
+                } else if (argCount != 0) {
                     this.runtimeError("Expected 0 arguments but got %d.", argCount);
                     return false;
                 }
@@ -560,19 +493,16 @@ struct VM
         return false;
     }
 
-    private bool invoke(ObjString* name, ubyte argCount)
-    {
+    private bool invoke(ObjString* name, ubyte argCount) {
         Value receiver = peek(argCount);
-        if (!receiver.valType == ValueType.Obj || !receiver.obj.objType == ObjType.Instance)
-        {
+        if (!receiver.valType == ValueType.Obj || !receiver.obj.objType == ObjType.Instance) {
             this.runtimeError("Only instances have methods.");
             return false;
         }
         ObjInstance* ins = receiver.obj.as!ObjInstance();
 
         Value val;
-        if (ins.fields.get(name, &val))
-        {
+        if (ins.fields.get(name, &val)) {
             this.stackTop[-argCount - 1] = val;
             return this.callValue(val, argCount);
         }
@@ -580,22 +510,18 @@ struct VM
         return this.invokeFromClass(ins.klass, name, argCount);
     }
 
-    private bool invokeFromClass(ObjClass* klass, ObjString* name, ubyte argCount)
-    {
+    private bool invokeFromClass(ObjClass* klass, ObjString* name, ubyte argCount) {
         Value method;
-        if (!klass.methods.get(name, &method))
-        {
+        if (!klass.methods.get(name, &method)) {
             this.runtimeError("Undefined property '%s'.", fromStringz(name.chars));
             return false;
         }
         return this.call(method.obj.as!ObjClosure(), argCount);
     }
 
-    private bool bindMethod(ObjClass* klass, ObjString* name)
-    {
+    private bool bindMethod(ObjClass* klass, ObjString* name) {
         Value method;
-        if (!klass.methods.get(name, &method))
-        {
+        if (!klass.methods.get(name, &method)) {
             this.runtimeError("Undefined property '%s'.", fromStringz(name.chars));
             return false;
         }
@@ -605,37 +531,29 @@ struct VM
         return true;
     }
 
-    private ObjUpvalue* captureUpvalue(Value* local)
-    {
+    private ObjUpvalue* captureUpvalue(Value* local) {
         ObjUpvalue* prev = null;
         ObjUpvalue* upv = this.openUpvalues;
-        while (upv != null && upv.location > local)
-        {
+        while (upv != null && upv.location > local) {
             prev = upv;
             upv = upv.next;
         }
-        if (upv != null && upv.location == local)
-        {
+        if (upv != null && upv.location == local) {
             return upv;
         }
 
         ObjUpvalue* createdUpvalue = ObjUpvalue.create(local);
         createdUpvalue.next = upv;
-        if (prev == null)
-        {
+        if (prev == null) {
             this.openUpvalues = createdUpvalue;
-        }
-        else
-        {
+        } else {
             prev.next = createdUpvalue;
         }
         return createdUpvalue;
     }
 
-    private void closeUpvalues(Value* last)
-    {
-        while (this.openUpvalues != null && this.openUpvalues.location >= last)
-        {
+    private void closeUpvalues(Value* last) {
+        while (this.openUpvalues != null && this.openUpvalues.location >= last) {
             ObjUpvalue* upv = this.openUpvalues;
             upv.closed = *upv.location;
             upv.location = &upv.closed;
@@ -643,16 +561,13 @@ struct VM
         }
     }
 
-    private bool call(ObjClosure* cl, int argCount)
-    {
-        if (argCount != cl.fn.arity)
-        {
+    private bool call(ObjClosure* cl, int argCount) {
+        if (argCount != cl.fn.arity) {
             this.runtimeError("Expected %d arguments but got %d.", cl.fn.arity, argCount);
             return false;
         }
 
-        if (this.frameCount == FRAMES_MAX)
-        {
+        if (this.frameCount == FRAMES_MAX) {
             this.runtimeError("Stack overflow.");
             return false;
         }
@@ -664,8 +579,7 @@ struct VM
         return true;
     }
 
-    void defineMethod(ObjString* name)
-    {
+    void defineMethod(ObjString* name) {
         Value method = this.peek(0);
         ObjClass* k = peek(1).obj.as!ObjClass();
         k.methods.set(name, method);
