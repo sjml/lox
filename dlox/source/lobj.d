@@ -2,6 +2,7 @@ module lobj;
 
 import std.stdio;
 import std.string;
+import std.conv;
 
 import vm : VM;
 import value : Value;
@@ -20,19 +21,37 @@ enum ObjType
 struct Obj
 {
     ObjType objType;
+    bool isMarked;
     Obj* next = null;
 
     private static Obj* allocateObject(size_t size, ObjType objType)
     {
         Obj* ret = cast(Obj*) memory.reallocate(null, 0, size);
         ret.objType = objType;
+        ret.isMarked = false;
         ret.next = VM.instance.objects;
         VM.instance.objects = ret;
+        version(DebugLogGC) {
+            writefln("%x allocate %u for %s", ret, size, to!string(ret.objType));
+        }
         return ret;
     }
 
     void free()
     {
+        version(DebugLogGC) {
+            writef("%x free type %s", &this, to!string(this.objType));
+            if (this.objType == ObjType.String) {
+                ObjString* str = this.asString();
+                size_t printLen = str.length;
+                if (printLen > 10) {
+                    printLen = 10;
+                }
+                writef(" (\"%s%s\")", fromStringz(str.chars[0..printLen]), printLen == str.length ? "" : "...");
+            }
+            writeln("");
+        }
+
         switch (this.objType)
         {
         case ObjType.Closure:
@@ -222,7 +241,10 @@ struct ObjString
         Obj* ret = Obj.allocateObject(ObjString.sizeof, ObjType.String);
         ObjString* strRet = ret.asString();
         strRet.hash = hash;
+
+        VM.instance.push(Value(&strRet.obj));
         VM.instance.strings.set(strRet, Value.nil());
+        VM.instance.pop();
         strRet.chars = cast(char*) memory.reallocate(null, 0, length + 1);
         strRet.length = length;
         memory.clear(strRet.chars, length + 1);

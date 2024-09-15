@@ -17,3 +17,13 @@ configuration "stress-gc" {
     targetType "executable"
     versions "DebugStressGC"
 }
+
+configuration "log-gc" {
+    targetType "executable"
+    versions "DebugLogGC"
+}
+
+configuration "log-stress-gc" {
+    targetType "executable"
+    versions "DebugLogGC" "DebugStressGC"
+}

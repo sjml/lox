@@ -3,6 +3,7 @@ module compiler;
 import std.stdio;
 import std.conv;
 
+import vm : VM;
 import chunk : Chunk, OpCode;
 import scanner : Scanner, Token, TokenType;
 import value : Value;
@@ -276,6 +277,7 @@ struct Compiler
                 lox_debug.disassembleChunk(this.currentChunk(), name);
             }
         }
+        VM.instance.currentCompiler = VM.instance.currentCompiler.enclosing;
         return retFn;
     }
 
@@ -517,6 +519,7 @@ struct Compiler
     private void fun(FunctionType fnType)
     {
         Compiler compiler = Compiler(fnType, &this);
+        VM.instance.currentCompiler = &compiler;
 
         compiler.beginScope();
 

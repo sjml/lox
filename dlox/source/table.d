@@ -4,7 +4,7 @@ import std.algorithm.comparison : equal;
 
 import lobj : ObjString;
 import value : Value, ValueType;
-import memory : growCapacity;
+import memory : growCapacity, markObject, markValue;
 
 static const float TABLE_MAX_LOAD = 0.75;
 
@@ -77,6 +77,15 @@ struct Table
         entry.key = null;
         entry.value = Value(true);
         return true;
+    }
+
+    void removeWhite() {
+        for (size_t i = 0; i < this.entries.length; i++) {
+            Entry* entry = &this.entries[i];
+            if (entry.key != null && !entry.key.obj.isMarked) {
+                this.remove(entry.key);
+            }
+        }
     }
 
     static void addAll(Table* from, Table* to)
@@ -174,5 +183,4 @@ struct Table
         this.entries.length = 0;
         this.entries = newEntries;
     }
-
 }

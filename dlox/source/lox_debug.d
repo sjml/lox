@@ -2,7 +2,6 @@ module lox_debug;
 
 import std.stdio;
 
-import value : printValue;
 import chunk : Chunk, OpCode;
 import lobj;
 
@@ -87,7 +86,7 @@ size_t disassembleInstruction(Chunk* chunk, size_t offset)
         offset += 1;
         ubyte constIdx = chunk.code[offset++];
         writef("%-16s %4d ", "OP_CLOSURE", constIdx);
-        printValue(chunk.constants.values[constIdx]);
+        chunk.constants.values[constIdx].print();
         writeln("");
 
         ObjFunction* fn = chunk.constants.values[constIdx].obj.asFunction();
@@ -120,7 +119,7 @@ size_t constantInstruction(string name, Chunk* chunk, size_t offset)
 {
     ubyte constantIdx = chunk.code[offset + 1];
     writef("%-16s %4d '", name, constantIdx);
-    printValue(chunk.constants.values[constantIdx]);
+    chunk.constants.values[constantIdx].print();
     writefln("'");
     return offset + 2;
 }

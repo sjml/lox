@@ -9,7 +9,8 @@ import core.stdc.time;
 
 import chunk : Chunk, OpCode;
 import compiler : Compiler, FunctionType;
-import value : Value, ValueType, printValue;
+import value : Value, ValueType;
+import memory : freeGrayStack;
 import lobj;
 import table : Table;
 import lox_debug;
@@ -48,21 +49,28 @@ static Value clockNative(int argCount, Value* args)
 
 struct VM
 {
-    private CallFrame[FRAMES_MAX] frames;
-    private size_t frameCount;
-    private Value[STACK_MAX] stack;
-    private Value* stackTop = null;
+    CallFrame[FRAMES_MAX] frames;
+    size_t frameCount;
+    Value[STACK_MAX] stack;
+    Value* stackTop = null;
     Table globals;
     Table strings;
     ObjUpvalue* openUpvalues;
+    size_t bytesAllocated = 0;
+    size_t nextGC = 1024 * 1024;
     Obj* objects = null;
-    private Compiler compiler;
+    size_t grayCount = 0;
+    size_t grayCapacity = 0;
+    Obj** grayStack = null;
+    Compiler compiler;
+    Compiler* currentCompiler;
     static VM* instance = null;
 
     static void setup()
     {
         VM.instance = new VM();
         VM.instance.compiler = Compiler(FunctionType.Script, null);
+        VM.instance.currentCompiler = &VM.instance.compiler;
         VM.instance.resetStack();
 
         VM.instance.defineNative("clock", &clockNative);
@@ -73,6 +81,7 @@ struct VM
         VM.instance.globals.free();
         VM.instance.strings.free();
         VM.instance.freeObjects();
+        freeGrayStack();
         VM.instance = null;
     }
 
@@ -181,8 +190,8 @@ struct VM
 
     pragma(inline) private void concatenateStrings()
     {
-        ObjString* b = pop().obj.asString();
-        ObjString* a = pop().obj.asString();
+        ObjString* b = this.peek(0).obj.asString();
+        ObjString* a = this.peek(1).obj.asString();
 
         size_t newLen = a.length + b.length;
         ObjString* newStr = ObjString.allocateString(newLen, 0);
@@ -197,7 +206,9 @@ struct VM
         newStr.chars[newLen] = '\0';
         newStr.hash = ObjString.hashString(cast(immutable(char)*) newStr.chars, newLen);
 
-        push(Value(cast(Obj*) newStr));
+        this.pop();
+        this.pop();
+        this.push(Value(cast(Obj*) newStr));
     }
 
     private InterpretResult run()
@@ -233,7 +244,7 @@ struct VM
                 for (Value* slot = this.stack.ptr; slot < this.stackTop; slot++)
                 {
                     writef("[ ");
-                    printValue(*slot);
+                    slot.print();
                     writef(" ]");
                 }
                 writeln("");
@@ -365,7 +376,7 @@ struct VM
                 this.push(Value(-this.pop().number));
                 break;
             case OpCode.Print:
-                printValue(this.pop());
+                this.pop().print();
                 writeln("");
                 break;
             case OpCode.Jump:
@@ -433,13 +444,13 @@ struct VM
         }
     }
 
-    private void push(Value val)
+    void push(Value val)
     {
         *this.stackTop = val;
         this.stackTop++;
     }
 
-    private Value pop()
+    Value pop()
     {
         this.stackTop--;
         return *this.stackTop;

@@ -4,6 +4,7 @@ import std.conv;
 
 import value : Value, ValueArray;
 import memory : growCapacity;
+import vm : VM;
 
 enum OpCode
 {
@@ -59,7 +60,9 @@ struct Chunk
 
     size_t addConstant(Value val)
     {
+        VM.instance.push(val);
         this.constants.add(val);
+        VM.instance.pop();
         return this.constants.count - 1;
     }
 

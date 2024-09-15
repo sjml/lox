@@ -49,6 +49,26 @@ struct Value
         return v;
     }
 
+    void print() {
+        switch (this.valType)
+        {
+        case ValueType.Boolean:
+            writef(this.boolean ? "true" : "false");
+            break;
+        case ValueType.Nil:
+            writef("nil");
+            break;
+        case ValueType.Number:
+            writef("%g", this.number);
+            break;
+        case ValueType.Obj:
+            this.obj.print();
+            break;
+        default:
+            assert(false); // unreachable
+        }
+    }
+
     bool equals(Value other)
     {
         if (this.valType != other.valType)
@@ -108,26 +128,5 @@ struct ValueArray
     {
         this.values.length = 0;
         this.count = 0;
-    }
-}
-
-void printValue(Value val)
-{
-    switch (val.valType)
-    {
-    case ValueType.Boolean:
-        writef(val.boolean ? "true" : "false");
-        break;
-    case ValueType.Nil:
-        writef("nil");
-        break;
-    case ValueType.Number:
-        writef("%g", val.number);
-        break;
-    case ValueType.Obj:
-        val.obj.print();
-        break;
-    default:
-        assert(false); // unreachable
     }
 }
