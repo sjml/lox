@@ -2,11 +2,11 @@ module lobj;
 
 import std.stdio;
 import std.string;
-import core.memory : GC;
 
 import vm : VM;
 import value : Value;
 import chunk : Chunk;
+static import memory;
 
 enum ObjType
 {
@@ -24,7 +24,7 @@ struct Obj
 
     private static Obj* allocateObject(size_t size, ObjType objType)
     {
-        Obj* ret = cast(Obj*) GC.malloc(size);
+        Obj* ret = cast(Obj*) memory.reallocate(null, 0, size);
         ret.objType = objType;
         ret.next = VM.instance.objects;
         VM.instance.objects = ret;
@@ -37,24 +37,24 @@ struct Obj
         {
         case ObjType.Closure:
             ObjClosure* oc = this.asClosure();
-            GC.free(oc.upvalues);
-            GC.free(&this);
+            memory.freeArray!(ObjUpvalue*)(oc.upvalues, oc.upvalueCount);
+            memory.free!ObjClosure(oc);
             break;
         case ObjType.Function:
             ObjFunction* of = this.asFunction();
-            of.c.free();
-            GC.free(&this);
+            of.c.free(); // "free"
+            memory.free!ObjFunction(of);
             break;
         case ObjType.String:
             ObjString* os = this.asString();
-            GC.free(os.chars);
-            GC.free(&this);
+            memory.freeArray!char(os.chars, os.length);
+            memory.free!ObjString(os);
             break;
         case ObjType.Native:
-            GC.free(&this);
+            memory.free!(ObjNative)(&this);
             break;
         case ObjType.Upvalue:
-            GC.free(&this);
+            memory.free!(ObjUpvalue)(&this);
             break;
         default:
             assert(false); // unreachable
@@ -150,8 +150,12 @@ struct ObjClosure
         Obj* ret = Obj.allocateObject(ObjClosure.sizeof, ObjType.Closure);
         ObjClosure* clRet = ret.asClosure();
         clRet.fn = fn;
-        clRet.upvalues = cast(ObjUpvalue**) GC.calloc((ObjUpvalue*).sizeof * fn.upvalueCount);
         clRet.upvalueCount = fn.upvalueCount;
+        clRet.upvalues = cast(ObjUpvalue**) memory.reallocate(null, 0, (ObjUpvalue*).sizeof * fn.upvalueCount);
+        // calloc
+        for (size_t i=0; i < clRet.upvalueCount; i++) {
+            clRet.upvalues[i] = null;
+        }
         return clRet;
     }
 }
@@ -222,8 +226,12 @@ struct ObjString
         ObjString* strRet = ret.asString();
         strRet.hash = hash;
         VM.instance.strings.set(strRet, Value.nil());
-        strRet.chars = cast(char*) GC.calloc(length + 1);
+        strRet.chars = cast(char*) memory.reallocate(null, 0, length + 1);
         strRet.length = length;
+        // calloc
+        for (size_t i=0; i < length + 1; i++) {
+            strRet.chars[i] = 0;
+        }
         return strRet;
     }
 

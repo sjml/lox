@@ -12,3 +12,8 @@ configuration "tracing" {
     targetType "executable"
     versions "DebugTraceExecution" "DebugPrintCode"
 }
+
+configuration "stress-gc" {
+    targetType "executable"
+    versions "DebugStressGC"
+}

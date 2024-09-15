@@ -4,7 +4,7 @@ import std.algorithm.comparison : equal;
 
 import lobj : ObjString;
 import value : Value, ValueType;
-import util : growCapacity;
+import memory : growCapacity;
 
 static const float TABLE_MAX_LOAD = 0.75;
 

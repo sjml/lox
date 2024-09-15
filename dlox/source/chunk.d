@@ -3,7 +3,7 @@ module chunk;
 import std.conv;
 
 import value : Value, ValueArray;
-import util : growCapacity;
+import memory : growCapacity;
 
 enum OpCode
 {

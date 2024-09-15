@@ -3,7 +3,7 @@ module value;
 import std.stdio;
 import std.algorithm.comparison : equal;
 
-import util : growCapacity;
+import memory : growCapacity;
 import lobj : Obj, ObjType, ObjString;
 
 enum ValueType
