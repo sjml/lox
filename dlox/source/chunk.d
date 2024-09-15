@@ -21,6 +21,7 @@ enum OpCode {
     SetUpvalue,
     GetProperty,
     SetProperty,
+    GetSuper,
     Equal,
     Greater,
     Less,
@@ -40,6 +41,8 @@ enum OpCode {
     Return,
     Class,
     Invoke,
+    SuperInvoke,
+    Inherit,
     Method,
 }
 

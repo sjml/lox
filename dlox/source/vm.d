@@ -310,6 +310,13 @@ struct VM {
                 this.pop();
                 this.push(val);
                 break;
+            case OpCode.GetSuper:
+                ObjString* name = readString();
+                ObjClass* superclass = pop().obj.as!ObjClass();
+                if (!this.bindMethod(superclass, name)) {
+                    return InterpretResult.RuntimeError;
+                }
+                break;
             case OpCode.Equal:
                 Value b = this.pop();
                 Value a = this.pop();
@@ -384,7 +391,7 @@ struct VM {
                 frame.ip -= offset;
                 break;
             case OpCode.Call:
-                ubyte argCount = readByte();
+                int argCount = readByte();
                 if (!this.callValue(this.peek(argCount), argCount)) {
                     return InterpretResult.RuntimeError;
                 }
@@ -392,11 +399,20 @@ struct VM {
                 break;
             case OpCode.Invoke:
                 ObjString* method = readString();
-                ubyte argCount = readByte();
+                int argCount = readByte();
                 if (!invoke(method, argCount)) {
                     return InterpretResult.RuntimeError;
                 }
                 frame = &VM.instance.frames[VM.instance.frameCount - 1];
+                break;
+            case OpCode.SuperInvoke:
+                ObjString* method = readString();
+                int argCount = readByte();
+                ObjClass* superclass = pop().obj.as!ObjClass();
+                if (!invokeFromClass(superclass, method, argCount)) {
+                    return InterpretResult.RuntimeError;
+                }
+                frame = &this.frames[this.frameCount - 1];
                 break;
             case OpCode.Closure:
                 ObjFunction* fn = readConstant().obj.as!ObjFunction();
@@ -430,6 +446,19 @@ struct VM {
                 break;
             case OpCode.Class:
                 this.push(Value(&ObjClass.create(readString()).obj));
+                break;
+            case OpCode.Inherit:
+                Value superclass = this.peek(1);
+                if (!superclass.isObjType(ObjType.Class)) {
+                    this.runtimeError("Superclass must be a class.");
+                    return InterpretResult.RuntimeError;
+                }
+                ObjClass* subclass = this.peek(0).obj.as!ObjClass();
+                Table.addAll(
+                    &superclass.obj.as!ObjClass().methods,
+                    &subclass.methods
+                );
+                this.pop();
                 break;
             case OpCode.Method:
                 this.defineMethod(readString());
@@ -493,7 +522,7 @@ struct VM {
         return false;
     }
 
-    private bool invoke(ObjString* name, ubyte argCount) {
+    private bool invoke(ObjString* name, int argCount) {
         Value receiver = peek(argCount);
         if (!receiver.valType == ValueType.Obj || !receiver.obj.objType == ObjType.Instance) {
             this.runtimeError("Only instances have methods.");
@@ -510,7 +539,7 @@ struct VM {
         return this.invokeFromClass(ins.klass, name, argCount);
     }
 
-    private bool invokeFromClass(ObjClass* klass, ObjString* name, ubyte argCount) {
+    private bool invokeFromClass(ObjClass* klass, ObjString* name, int argCount) {
         Value method;
         if (!klass.methods.get(name, &method)) {
             this.runtimeError("Undefined property '%s'.", fromStringz(name.chars));

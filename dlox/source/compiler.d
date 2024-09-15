@@ -75,7 +75,7 @@ ParseRule[] rules = [
     /* Or           */ ParseRule(null,               &Compiler.or,     Precedence.Or          ),
     /* Print        */ ParseRule(null,               null,             Precedence.None        ),
     /* Return       */ ParseRule(null,               null,             Precedence.None        ),
-    /* Super        */ ParseRule(null,               null,             Precedence.None        ),
+    /* Super        */ ParseRule(&Compiler.ssuper,   null,             Precedence.None        ),
     /* This         */ ParseRule(&Compiler.tthis,    null,             Precedence.None        ),
     /* True         */ ParseRule(&Compiler.literal,  null,             Precedence.None        ),
     /* Var          */ ParseRule(null,               null,             Precedence.None        ),
@@ -105,6 +105,7 @@ enum FunctionType {
 
 struct ClassCompiler {
     ClassCompiler* enclosing;
+    bool hasSuperclass = false;
 }
 
 static ClassCompiler* currentClass = null;
@@ -497,6 +498,22 @@ struct Compiler {
         cc.enclosing = currentClass;
         currentClass = &cc;
 
+        if (this.match(TokenType.Less)) {
+            this.consume(TokenType.Identifier, "Expect superclass name.");
+            Compiler.variable(&this, false);
+            if (this.identifiersEqual(&className, &this.parser.previous)) {
+                this.error("A class can't inherit from itself.");
+            }
+
+            this.beginScope();
+            this.addLocal(this.syntheticToken("super"));
+            this.defineVariable(0);
+
+            Compiler.namedVariable(&this, className, false);
+            this.emitByte(OpCode.Inherit);
+            currentClass.hasSuperclass = true;
+        }
+
         Compiler.namedVariable(&this, className, false);
         this.consume(TokenType.LeftBrace, "Expect '{' before class body.");
         while (!this.check(TokenType.RightBrace) && !this.check(TokenType.EndOfFile)) {
@@ -504,7 +521,43 @@ struct Compiler {
         }
         this.consume(TokenType.RightBrace, "Expect '}' after class body.");
         this.emitByte(OpCode.Pop);
+
+        if (currentClass.hasSuperclass) {
+            this.endScope();
+        }
+
         currentClass = currentClass.enclosing;
+    }
+
+    private Token syntheticToken(string text) {
+        Token tok;
+        tok.lexeme = text;
+        return tok;
+    }
+
+    static void ssuper(Compiler* self, bool canAssign) {
+        if (currentClass == null) {
+            self.error("Can't use 'super' outside of a class.");
+        }
+        else if (!currentClass.hasSuperclass) {
+            self.error("Can't use 'super' in a class with no superclass.");
+        }
+
+        self.consume(TokenType.Dot, "Expect '.' after 'super'.");
+        self.consume(TokenType.Identifier, "Expect superclass method name.");
+        ubyte name = self.identifierConstant(&self.parser.previous);
+
+        Compiler.namedVariable(self, self.syntheticToken("this"), false);
+        if (self.match(TokenType.LeftParen)) {
+            ubyte argCount = self.argumentList();
+            Compiler.namedVariable(self, self.syntheticToken("super"), false);
+            self.emitBytes(OpCode.SuperInvoke, name);
+            self.emitByte(argCount);
+        }
+        else {
+            Compiler.namedVariable(self, self.syntheticToken("super"), false);
+            self.emitBytes(OpCode.GetSuper, name);
+        }
     }
 
     private void method() {

@@ -51,6 +51,8 @@ size_t disassembleInstruction(Chunk* chunk, size_t offset) {
         return constantInstruction("OP_GET_PROPERTY", chunk, offset);
     case OpCode.SetProperty:
         return constantInstruction("OP_SET_PROPERTY", chunk, offset);
+    case OpCode.GetSuper:
+        return constantInstruction("OP_GET_SUPER", chunk, offset);
     case OpCode.Equal:
         return simpleInstruction("OP_EQUAL", offset);
     case OpCode.Greater:
@@ -81,6 +83,8 @@ size_t disassembleInstruction(Chunk* chunk, size_t offset) {
         return byteInstruction("OP_CALL", chunk, offset);
     case OpCode.Invoke:
         return invokeInstruction("OP_INVOKE", chunk, offset);
+    case OpCode.SuperInvoke:
+        return invokeInstruction("OP_SUPER_INVOKE", chunk, offset);
     case OpCode.Closure:
         offset += 1;
         ubyte constIdx = chunk.code[offset++];
@@ -103,6 +107,8 @@ size_t disassembleInstruction(Chunk* chunk, size_t offset) {
         return simpleInstruction("OP_RETURN", offset);
     case OpCode.Class:
         return constantInstruction("OP_CLASS", chunk, offset);
+    case OpCode.Inherit:
+        return simpleInstruction("OP_INHERIT", offset);
     case OpCode.Method:
         return constantInstruction("OP_METHOD", chunk, offset);
     default:
