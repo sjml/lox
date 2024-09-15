@@ -93,7 +93,7 @@ size_t disassembleInstruction(Chunk* chunk, size_t offset)
         chunk.constants.values[constIdx].print();
         writeln("");
 
-        ObjFunction* fn = chunk.constants.values[constIdx].obj.asFunction();
+        ObjFunction* fn = chunk.constants.values[constIdx].obj.as!ObjFunction();
         for (size_t _ = 0; _ < fn.upvalueCount; _++)
         {
             ubyte isLocal = chunk.code[offset++];

@@ -130,7 +130,7 @@ struct VM
     {
         this.push(Value(&ObjString.fromCopyOf(name).obj));
         this.push(Value(&ObjNative.create(fn).obj));
-        this.globals.set(this.stack[0].obj.asString(), this.stack[1]);
+        this.globals.set(this.stack[0].obj.as!ObjString(), this.stack[1]);
         this.pop();
         this.pop();
     }
@@ -190,8 +190,8 @@ struct VM
 
     pragma(inline) private void concatenateStrings()
     {
-        ObjString* b = this.peek(0).obj.asString();
-        ObjString* a = this.peek(1).obj.asString();
+        ObjString* b = this.peek(0).obj.as!ObjString();
+        ObjString* a = this.peek(1).obj.as!ObjString();
 
         size_t newLen = a.length + b.length;
         ObjString* newStr = ObjString.allocateString(newLen, 0);
@@ -233,7 +233,7 @@ struct VM
 
         pragma(inline) ObjString* readString()
         {
-            return readConstant().obj.asString();
+            return readConstant().obj.as!ObjString();
         }
 
         while (true)
@@ -315,7 +315,7 @@ struct VM
                     runtimeError("Only instances have properties.");
                     return InterpretResult.RuntimeError;
                 }
-                ObjInstance* ins = this.peek(0).obj.asInstance();
+                ObjInstance* ins = this.peek(0).obj.as!ObjInstance();
                 ObjString* name = readString();
                 Value val;
                 if (ins.fields.get(name, &val)) {
@@ -330,7 +330,7 @@ struct VM
                     this.runtimeError("Only instances have fields.");
                     return InterpretResult.RuntimeError;
                 }
-                ObjInstance* ins = this.peek(1).obj.asInstance();
+                ObjInstance* ins = this.peek(1).obj.as!ObjInstance();
                 ins.fields.set(readString(), peek(0));
                 Value val = this.pop();
                 this.pop();
@@ -429,7 +429,7 @@ struct VM
                 frame = &this.frames[this.frameCount - 1];
                 break;
             case OpCode.Closure:
-                ObjFunction* fn = readConstant().obj.asFunction();
+                ObjFunction* fn = readConstant().obj.as!ObjFunction();
                 ObjClosure* cl = ObjClosure.create(fn);
                 this.push(Value(&cl.obj));
                 for (int i = 0; i < cl.upvalueCount; i++)
@@ -499,14 +499,14 @@ struct VM
             switch (callObj.objType)
             {
             case ObjType.Class:
-                ObjClass* c = callObj.asClass();
+                ObjClass* c = callObj.as!ObjClass();
                 this.stackTop[-argCount - 1] = Value(&ObjInstance.create(c).obj);
                 return true;
             case ObjType.Closure:
-                ObjClosure* callClObj = callObj.asClosure();
+                ObjClosure* callClObj = callObj.as!ObjClosure();
                 return call(callClObj, argCount);
             case ObjType.Native:
-                ObjNative* nativeObj = callObj.asNative();
+                ObjNative* nativeObj = callObj.as!ObjNative();
                 NativeFn native = nativeObj.fn;
                 Value result = native(argCount, this.stackTop - argCount);
                 this.stackTop -= argCount + 1;

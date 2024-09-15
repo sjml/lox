@@ -45,7 +45,7 @@ struct Obj
         version(DebugLogGC) {
             writef("%x free type %s", &this, to!string(this.objType));
             if (this.objType == ObjType.String) {
-                ObjString* str = this.asString();
+                ObjString* str = this.as!ObjString();
                 size_t printLen = str.length;
                 if (printLen > 10) {
                     printLen = 10;
@@ -61,22 +61,22 @@ struct Obj
             memory.free!ObjClass(&this);
             break;
         case ObjType.Instance:
-            ObjInstance* oi = this.asInstance();
+            ObjInstance* oi = this.as!ObjInstance();
             oi.fields.free();
             memory.free!ObjInstance(oi);
             break;
         case ObjType.Closure:
-            ObjClosure* oc = this.asClosure();
+            ObjClosure* oc = this.as!ObjClosure();
             memory.freeArray!(ObjUpvalue*)(oc.upvalues, oc.upvalueCount);
             memory.free!ObjClosure(oc);
             break;
         case ObjType.Function:
-            ObjFunction* of = this.asFunction();
+            ObjFunction* of = this.as!ObjFunction();
             of.c.free(); // "free"
             memory.free!ObjFunction(of);
             break;
         case ObjType.String:
-            ObjString* os = this.asString();
+            ObjString* os = this.as!ObjString();
             memory.freeArray!char(os.chars, os.length);
             memory.free!ObjString(os);
             break;
@@ -96,16 +96,16 @@ struct Obj
         switch (this.objType)
         {
         case ObjType.Class:
-            writef("%s", fromStringz(this.asClass().name.chars));
+            writef("%s", fromStringz(this.as!ObjClass().name.chars));
             break;
         case ObjType.Instance:
-            writef("%s instance", fromStringz(this.asInstance().klass.name.chars));
+            writef("%s instance", fromStringz(this.as!ObjInstance().klass.name.chars));
             break;
         case ObjType.Closure:
-            this.asClosure().fn.obj.print();
+            this.as!ObjClosure().fn.obj.print();
             break;
         case ObjType.Function:
-            ObjFunction* fn = this.asFunction();
+            ObjFunction* fn = this.as!ObjFunction();
             if (fn.name == null)
             {
                 writef("<script>");
@@ -117,7 +117,7 @@ struct Obj
             writef("<native fn>");
             break;
         case ObjType.String:
-            writef("%s", fromStringz(this.asString().chars));
+            writef("%s", fromStringz(this.as!ObjString().chars));
             break;
         case ObjType.Upvalue:
             write("upvalue");
@@ -127,69 +127,8 @@ struct Obj
         }
     }
 
-    // TODO: these functions feel like they could be templated
-    //      (but mapping to the ObjType might not work :( )
-    pragma(inline) ObjClass* asClass()
-    {
-        if (this.objType != ObjType.Class)
-        {
-            return null;
-        }
-        return cast(ObjClass*)&this;
-    }
-
-    pragma(inline) ObjInstance* asInstance()
-    {
-        if (this.objType != ObjType.Instance)
-        {
-            return null;
-        }
-        return cast(ObjInstance*)&this;
-    }
-
-    pragma(inline) ObjClosure* asClosure()
-    {
-        if (this.objType != ObjType.Closure)
-        {
-            return null;
-        }
-        return cast(ObjClosure*)&this;
-    }
-
-    pragma(inline) ObjFunction* asFunction()
-    {
-        if (this.objType != ObjType.Function)
-        {
-            return null;
-        }
-        return cast(ObjFunction*)&this;
-    }
-
-    pragma(inline) ObjNative* asNative()
-    {
-        if (this.objType != ObjType.Native)
-        {
-            return null;
-        }
-        return cast(ObjNative*)&this;
-    }
-
-    pragma(inline) ObjString* asString()
-    {
-        if (this.objType != ObjType.String)
-        {
-            return null;
-        }
-        return cast(ObjString*)&this;
-    }
-
-    pragma(inline) ObjUpvalue* asUpvalue()
-    {
-        if (this.objType != ObjType.Upvalue)
-        {
-            return null;
-        }
-        return cast(ObjUpvalue*)&this;
+    pragma(inline) T* as(T)() {
+        return cast(T*)&this;
     }
 }
 
@@ -199,7 +138,7 @@ struct ObjClass {
 
     static ObjClass* create(ObjString* name) {
         Obj* ret = Obj.allocateObject(ObjClass.sizeof, ObjType.Class);
-        ObjClass* kRet = ret.asClass();
+        ObjClass* kRet = ret.as!ObjClass();
         kRet.name = name;
         return kRet;
     }
@@ -212,7 +151,7 @@ struct ObjInstance {
 
     static ObjInstance* create(ObjClass* klass) {
         Obj* ret = Obj.allocateObject(ObjInstance.sizeof, ObjType.Instance);
-        ObjInstance* iRet = ret.asInstance();
+        ObjInstance* iRet = ret.as!ObjInstance();
         iRet.klass = klass;
         return iRet;
     }
@@ -228,7 +167,7 @@ struct ObjClosure
     static ObjClosure* create(ObjFunction* fn)
     {
         Obj* ret = Obj.allocateObject(ObjClosure.sizeof, ObjType.Closure);
-        ObjClosure* clRet = ret.asClosure();
+        ObjClosure* clRet = ret.as!ObjClosure();
         clRet.fn = fn;
         clRet.upvalueCount = fn.upvalueCount;
         clRet.upvalues = cast(ObjUpvalue**) memory.reallocate(null, 0, (ObjUpvalue*).sizeof * fn.upvalueCount);
@@ -248,7 +187,7 @@ struct ObjFunction
     static ObjFunction* create()
     {
         Obj* ret = Obj.allocateObject(ObjFunction.sizeof, ObjType.Function);
-        ObjFunction* fnRet = ret.asFunction();
+        ObjFunction* fnRet = ret.as!ObjFunction();
         fnRet.arity = 0;
         fnRet.c = Chunk();
         fnRet.name = null;
@@ -266,7 +205,7 @@ struct ObjNative
     static ObjNative* create(NativeFn fn)
     {
         Obj* ret = Obj.allocateObject(ObjNative.sizeof, ObjType.Native);
-        ObjNative* nvRet = ret.asNative();
+        ObjNative* nvRet = ret.as!ObjNative();
         nvRet.fn = fn;
         return nvRet;
     }
@@ -300,7 +239,7 @@ struct ObjString
     static ObjString* allocateString(size_t length, uint hash)
     {
         Obj* ret = Obj.allocateObject(ObjString.sizeof, ObjType.String);
-        ObjString* strRet = ret.asString();
+        ObjString* strRet = ret.as!ObjString();
         strRet.hash = hash;
 
         VM.instance.push(Value(&strRet.obj));
@@ -339,7 +278,7 @@ struct ObjUpvalue
     static ObjUpvalue* create(Value* slot)
     {
         Obj* ret = Obj.allocateObject(ObjUpvalue.sizeof, ObjType.Upvalue);
-        ObjUpvalue* upvRet = ret.asUpvalue();
+        ObjUpvalue* upvRet = ret.as!ObjUpvalue();
         upvRet.closed = Value.nil();
         upvRet.location = slot;
         upvRet.next = null;

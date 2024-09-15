@@ -150,28 +150,28 @@ void blackenObject(Obj* obj) {
 
     switch (obj.objType) {
         case ObjType.Class:
-            ObjClass* k = obj.asClass();
+            ObjClass* k = obj.as!ObjClass();
             markObject(&k.name.obj);
             break;
         case ObjType.Instance:
-            ObjInstance* oi = obj.asInstance();
+            ObjInstance* oi = obj.as!ObjInstance();
             markObject(&oi.klass.obj);
             markTable(&oi.fields);
             break;
         case ObjType.Closure:
-            ObjClosure* cl = obj.asClosure();
+            ObjClosure* cl = obj.as!ObjClosure();
             markObject(&cl.fn.obj);
             for (size_t i = 0; i < cl.upvalueCount; i++) {
                 markObject(&cl.upvalues[i].obj);
             }
             break;
         case ObjType.Function:
-            ObjFunction* fn = obj.asFunction();
+            ObjFunction* fn = obj.as!ObjFunction();
             markObject(&fn.name.obj);
             markArray(&fn.c.constants);
             break;
         case ObjType.Upvalue:
-            markValue(obj.asUpvalue().closed);
+            markValue(obj.as!ObjUpvalue().closed);
             break;
         case ObjType.Native, ObjType.String:
             break;
