@@ -1,4 +1,4 @@
-# {p|~~z~~|~~r~~|d}lox
+# {p|~~z | r |~~ d}lox
 
 I'm making my way through [_Crafting Interpreters_](https://craftinginterpreters.com/), using languages not in the book. This is helpful in a few ways! 
 

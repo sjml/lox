@@ -2,6 +2,7 @@ module compiler;
 
 import std.stdio;
 import std.conv;
+import std.algorithm.comparison : equal;
 
 import vm : VM;
 import chunk : Chunk, OpCode;
@@ -78,7 +79,7 @@ ParseRule[] rules = [
     /* Print        */ ParseRule(null,               null,             Precedence.None        ),
     /* Return       */ ParseRule(null,               null,             Precedence.None        ),
     /* Super        */ ParseRule(null,               null,             Precedence.None        ),
-    /* This         */ ParseRule(null,               null,             Precedence.None        ),
+    /* This         */ ParseRule(&Compiler.tthis,    null,             Precedence.None        ),
     /* True         */ ParseRule(&Compiler.literal,  null,             Precedence.None        ),
     /* Var          */ ParseRule(null,               null,             Precedence.None        ),
     /* While        */ ParseRule(null,               null,             Precedence.None        ),
@@ -103,8 +104,17 @@ struct Upvalue
 enum FunctionType
 {
     Function,
+    Initializer,
+    Method,
     Script,
 }
+
+struct ClassCompiler
+{
+    ClassCompiler* enclosing;
+}
+
+static ClassCompiler* currentClass = null;
 
 struct Compiler
 {
@@ -144,7 +154,14 @@ struct Compiler
         Local* local = &this.locals[this.localCount++];
         local.depth = 0;
         local.isCaptured = false;
-        local.name.lexeme = "";
+        if (fnType != FunctionType.Function)
+        {
+            local.name.lexeme = "this";
+        }
+        else
+        {
+            local.name.lexeme = "";
+        }
     }
 
     ObjFunction* compile(string source)
@@ -256,7 +273,14 @@ struct Compiler
 
     private void emitReturn()
     {
-        this.emitByte(OpCode.Nil);
+        if (this.fnType == FunctionType.Initializer)
+        {
+            this.emitBytes(OpCode.GetLocal, 0);
+        }
+        else
+        {
+            this.emitByte(OpCode.Nil);
+        }
         this.emitByte(OpCode.Return);
     }
 
@@ -552,16 +576,44 @@ struct Compiler
         }
     }
 
-    private void classDeclaration() {
+    private void classDeclaration()
+    {
         this.consume(TokenType.Identifier, "Expect class name.");
-        ubyte nameConstIdx = this.identifierConstant(&parser.previous);
+        Token className = this.parser.previous;
+        ubyte nameConstIdx = this.identifierConstant(&this.parser.previous);
         this.declareVariable();
 
         this.emitBytes(OpCode.Class, nameConstIdx);
         this.defineVariable(nameConstIdx);
 
+        ClassCompiler cc;
+        cc.enclosing = currentClass;
+        currentClass = &cc;
+
+        Compiler.namedVariable(&this, className, false);
         this.consume(TokenType.LeftBrace, "Expect '{' before class body.");
+        while (!this.check(TokenType.RightBrace) && !this.check(TokenType.EndOfFile))
+        {
+            this.method();
+        }
         this.consume(TokenType.RightBrace, "Expect '}' after class body.");
+        this.emitByte(OpCode.Pop);
+        currentClass = currentClass.enclosing;
+    }
+
+    private void method()
+    {
+        this.consume(TokenType.Identifier, "Expect method name.");
+        ubyte constIdx = this.identifierConstant(&this.parser.previous);
+
+        FunctionType ft = FunctionType.Method;
+        string lex = this.parser.previous.lexeme;
+        if (equal(lex[0 .. lex.length], "init"))
+        {
+            ft = FunctionType.Initializer;
+        }
+        this.fun(ft);
+        this.emitBytes(OpCode.Method, constIdx);
     }
 
     private void block()
@@ -575,7 +627,8 @@ struct Compiler
 
     static void declaration(Compiler* self)
     {
-        if (self.match(TokenType.Class)) {
+        if (self.match(TokenType.Class))
+        {
             self.classDeclaration();
         }
         else if (self.match(TokenType.Fun))
@@ -692,15 +745,24 @@ struct Compiler
         self.emitBytes(OpCode.Call, argCount);
     }
 
-    static void dot(Compiler* self, bool canAssign) {
+    static void dot(Compiler* self, bool canAssign)
+    {
         self.consume(TokenType.Identifier, "Expect property name after '.'.");
         ubyte name = self.identifierConstant(&self.parser.previous);
 
-        if (canAssign && self.match(TokenType.Equal)) {
+        if (canAssign && self.match(TokenType.Equal))
+        {
             Compiler.expression(self);
             self.emitBytes(OpCode.SetProperty, name);
         }
-        else {
+        else if (self.match(TokenType.LeftParen))
+        {
+            ubyte argCount = self.argumentList();
+            self.emitBytes(OpCode.Invoke, name);
+            self.emitByte(argCount);
+        }
+        else
+        {
             self.emitBytes(OpCode.GetProperty, name);
         }
     }
@@ -816,6 +878,16 @@ struct Compiler
         size_t len = self.parser.previous.lexeme.length;
         ObjString* os = ObjString.fromCopyOf(self.parser.previous.lexeme[1 .. len - 1]);
         self.emitConstant(Value(cast(Obj*) os));
+    }
+
+    static void tthis(Compiler* self, bool canAssign)
+    {
+        if (currentClass == null)
+        {
+            self.error("Can't use 'this' outside of a class.");
+            return;
+        }
+        self.variable(self, false);
     }
 
     static void variable(Compiler* self, bool canAssign)
@@ -942,6 +1014,10 @@ struct Compiler
         }
         else
         {
+            if (this.fnType == FunctionType.Initializer)
+            {
+                this.error("Can't return a value from an initializer.");
+            }
             Compiler.expression(&this);
             this.consume(TokenType.Semicolon, "Expect ';' after return value.");
             this.emitByte(OpCode.Return);

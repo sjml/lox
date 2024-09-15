@@ -49,7 +49,8 @@ struct Value
         return v;
     }
 
-    void print() {
+    void print()
+    {
         switch (this.valType)
         {
         case ValueType.Boolean:

@@ -12,6 +12,7 @@ static import memory;
 
 enum ObjType
 {
+    BoundMethod,
     Class,
     Instance,
     Closure,
@@ -34,7 +35,8 @@ struct Obj
         ret.isMarked = false;
         ret.next = VM.instance.objects;
         VM.instance.objects = ret;
-        version(DebugLogGC) {
+        version (DebugLogGC)
+        {
             writefln("%x allocate %u for %s", ret, size, to!string(ret.objType));
         }
         return ret;
@@ -42,22 +44,30 @@ struct Obj
 
     void free()
     {
-        version(DebugLogGC) {
+        version (DebugLogGC)
+        {
             writef("%x free type %s", &this, to!string(this.objType));
-            if (this.objType == ObjType.String) {
+            if (this.objType == ObjType.String)
+            {
                 ObjString* str = this.as!ObjString();
                 size_t printLen = str.length;
-                if (printLen > 10) {
+                if (printLen > 10)
+                {
                     printLen = 10;
                 }
-                writef(" (\"%s%s\")", fromStringz(str.chars[0..printLen]), printLen == str.length ? "" : "...");
+                writef(" (\"%s%s\")", fromStringz(str.chars[0 .. printLen]),
+                        printLen == str.length ? "" : "...");
             }
             writeln("");
         }
 
         switch (this.objType)
         {
+        case ObjType.BoundMethod:
+            memory.free!ObjBoundMethod(&this);
+            break;
         case ObjType.Class:
+            this.as!ObjClass().methods.free();
             memory.free!ObjClass(&this);
             break;
         case ObjType.Instance:
@@ -95,11 +105,15 @@ struct Obj
     {
         switch (this.objType)
         {
+        case ObjType.BoundMethod:
+            this.as!ObjBoundMethod().method.fn.obj.print();
+            break;
         case ObjType.Class:
             writef("%s", fromStringz(this.as!ObjClass().name.chars));
             break;
         case ObjType.Instance:
-            writef("%s instance", fromStringz(this.as!ObjInstance().klass.name.chars));
+            writef("%s instance",
+                    fromStringz(this.as!ObjInstance().klass.name.chars));
             break;
         case ObjType.Closure:
             this.as!ObjClosure().fn.obj.print();
@@ -127,16 +141,20 @@ struct Obj
         }
     }
 
-    pragma(inline) T* as(T)() {
+    pragma(inline) T* as(T)()
+    {
         return cast(T*)&this;
     }
 }
 
-struct ObjClass {
+struct ObjClass
+{
     Obj obj;
     ObjString* name;
+    Table methods;
 
-    static ObjClass* create(ObjString* name) {
+    static ObjClass* create(ObjString* name)
+    {
         Obj* ret = Obj.allocateObject(ObjClass.sizeof, ObjType.Class);
         ObjClass* kRet = ret.as!ObjClass();
         kRet.name = name;
@@ -144,16 +162,34 @@ struct ObjClass {
     }
 }
 
-struct ObjInstance {
+struct ObjInstance
+{
     Obj obj;
     ObjClass* klass;
     Table fields;
 
-    static ObjInstance* create(ObjClass* klass) {
+    static ObjInstance* create(ObjClass* klass)
+    {
         Obj* ret = Obj.allocateObject(ObjInstance.sizeof, ObjType.Instance);
         ObjInstance* iRet = ret.as!ObjInstance();
         iRet.klass = klass;
         return iRet;
+    }
+}
+
+struct ObjBoundMethod
+{
+    Obj obj;
+    Value receiver;
+    ObjClosure* method;
+
+    static ObjBoundMethod* create(Value receiver, ObjClosure* method)
+    {
+        Obj* ret = Obj.allocateObject(ObjBoundMethod.sizeof, ObjType.BoundMethod);
+        ObjBoundMethod* bmRet = ret.as!ObjBoundMethod();
+        bmRet.receiver = receiver;
+        bmRet.method = method;
+        return bmRet;
     }
 }
 
@@ -170,7 +206,8 @@ struct ObjClosure
         ObjClosure* clRet = ret.as!ObjClosure();
         clRet.fn = fn;
         clRet.upvalueCount = fn.upvalueCount;
-        clRet.upvalues = cast(ObjUpvalue**) memory.reallocate(null, 0, (ObjUpvalue*).sizeof * fn.upvalueCount);
+        clRet.upvalues = cast(ObjUpvalue**) memory.reallocate(null, 0,
+                (ObjUpvalue*).sizeof * fn.upvalueCount);
         memory.clear(clRet.upvalues, (ObjUpvalue*).sizeof * fn.upvalueCount);
         return clRet;
     }

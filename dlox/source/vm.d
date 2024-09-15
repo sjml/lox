@@ -55,6 +55,7 @@ struct VM
     Value* stackTop = null;
     Table globals;
     Table strings;
+    ObjString* initString;
     ObjUpvalue* openUpvalues;
     size_t bytesAllocated = 0;
     size_t nextGC = 1024 * 1024;
@@ -73,6 +74,8 @@ struct VM
         VM.instance.currentCompiler = &VM.instance.compiler;
         VM.instance.resetStack();
 
+        VM.instance.initString = null;
+        VM.instance.initString = ObjString.fromCopyOf("init");
         VM.instance.defineNative("clock", &clockNative);
     }
 
@@ -80,6 +83,7 @@ struct VM
     {
         VM.instance.globals.free();
         VM.instance.strings.free();
+        // VM.instance.initString.obj.free(); // this gets freed with the objects, right?
         VM.instance.freeObjects();
         freeGrayStack();
         VM.instance = null;
@@ -311,22 +315,31 @@ struct VM
                 *frame.closure.upvalues[slot].location = this.peek(0);
                 break;
             case OpCode.GetProperty:
-                if (!(this.peek(0).valType == ValueType.Obj && this.peek(0).obj.objType == ObjType.Instance)) {
+                if (!(this.peek(0)
+                        .valType == ValueType.Obj && this.peek(0).obj.objType == ObjType.Instance))
+                {
                     runtimeError("Only instances have properties.");
                     return InterpretResult.RuntimeError;
                 }
                 ObjInstance* ins = this.peek(0).obj.as!ObjInstance();
                 ObjString* name = readString();
                 Value val;
-                if (ins.fields.get(name, &val)) {
+                if (ins.fields.get(name, &val))
+                {
                     this.pop();
                     this.push(val);
                     break;
                 }
-                this.runtimeError("Undefined property '%s'.", fromStringz(name.chars));
-                return InterpretResult.RuntimeError;
+
+                if (!this.bindMethod(ins.klass, name))
+                {
+                    return InterpretResult.RuntimeError;
+                }
+                break;
             case OpCode.SetProperty:
-                if (!(this.peek(1).valType == ValueType.Obj && this.peek(1).obj.objType == ObjType.Instance)) {
+                if (!(this.peek(1)
+                        .valType == ValueType.Obj && this.peek(1).obj.objType == ObjType.Instance))
+                {
                     this.runtimeError("Only instances have fields.");
                     return InterpretResult.RuntimeError;
                 }
@@ -402,7 +415,8 @@ struct VM
                 this.push(Value(-this.pop().number));
                 break;
             case OpCode.Print:
-                this.pop().print();
+                Value p = this.pop();
+                p.print();
                 writeln("");
                 break;
             case OpCode.Jump:
@@ -427,6 +441,15 @@ struct VM
                     return InterpretResult.RuntimeError;
                 }
                 frame = &this.frames[this.frameCount - 1];
+                break;
+            case OpCode.Invoke:
+                ObjString* method = readString();
+                ubyte argCount = readByte();
+                if (!invoke(method, argCount))
+                {
+                    return InterpretResult.RuntimeError;
+                }
+                frame = &VM.instance.frames[VM.instance.frameCount - 1];
                 break;
             case OpCode.Closure:
                 ObjFunction* fn = readConstant().obj.as!ObjFunction();
@@ -466,6 +489,9 @@ struct VM
             case OpCode.Class:
                 this.push(Value(&ObjClass.create(readString()).obj));
                 break;
+            case OpCode.Method:
+                this.defineMethod(readString());
+                break;
             default:
                 stderr.writefln("ERROR: Unknown opcode '%d'", inst);
                 break;
@@ -498,9 +524,23 @@ struct VM
             ObjType t = callObj.objType;
             switch (callObj.objType)
             {
+            case ObjType.BoundMethod:
+                ObjBoundMethod* bm = callee.obj.as!ObjBoundMethod();
+                this.instance.stackTop[-argCount - 1] = bm.receiver;
+                return call(bm.method, argCount);
             case ObjType.Class:
                 ObjClass* c = callObj.as!ObjClass();
                 this.stackTop[-argCount - 1] = Value(&ObjInstance.create(c).obj);
+                Value initializer;
+                if (c.methods.get(VM.instance.initString, &initializer))
+                {
+                    return call(initializer.obj.as!ObjClosure(), argCount);
+                }
+                else if (argCount != 0)
+                {
+                    this.runtimeError("Expected 0 arguments but got %d.", argCount);
+                    return false;
+                }
                 return true;
             case ObjType.Closure:
                 ObjClosure* callClObj = callObj.as!ObjClosure();
@@ -518,6 +558,51 @@ struct VM
         }
         this.runtimeError("Can only call functions and classes.");
         return false;
+    }
+
+    private bool invoke(ObjString* name, ubyte argCount)
+    {
+        Value receiver = peek(argCount);
+        if (!receiver.valType == ValueType.Obj || !receiver.obj.objType == ObjType.Instance)
+        {
+            this.runtimeError("Only instances have methods.");
+            return false;
+        }
+        ObjInstance* ins = receiver.obj.as!ObjInstance();
+
+        Value val;
+        if (ins.fields.get(name, &val))
+        {
+            this.stackTop[-argCount - 1] = val;
+            return this.callValue(val, argCount);
+        }
+
+        return this.invokeFromClass(ins.klass, name, argCount);
+    }
+
+    private bool invokeFromClass(ObjClass* klass, ObjString* name, ubyte argCount)
+    {
+        Value method;
+        if (!klass.methods.get(name, &method))
+        {
+            this.runtimeError("Undefined property '%s'.", fromStringz(name.chars));
+            return false;
+        }
+        return this.call(method.obj.as!ObjClosure(), argCount);
+    }
+
+    private bool bindMethod(ObjClass* klass, ObjString* name)
+    {
+        Value method;
+        if (!klass.methods.get(name, &method))
+        {
+            this.runtimeError("Undefined property '%s'.", fromStringz(name.chars));
+            return false;
+        }
+        ObjBoundMethod* bm = ObjBoundMethod.create(this.peek(0), method.obj.as!ObjClosure());
+        this.pop();
+        this.push(Value(&bm.obj));
+        return true;
     }
 
     private ObjUpvalue* captureUpvalue(Value* local)
@@ -577,5 +662,13 @@ struct VM
         frame.ip = &cl.fn.c.code[0];
         frame.slots = this.stackTop - argCount - 1;
         return true;
+    }
+
+    void defineMethod(ObjString* name)
+    {
+        Value method = this.peek(0);
+        ObjClass* k = peek(1).obj.as!ObjClass();
+        k.methods.set(name, method);
+        this.pop();
     }
 }

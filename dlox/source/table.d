@@ -79,10 +79,13 @@ struct Table
         return true;
     }
 
-    void removeWhite() {
-        for (size_t i = 0; i < this.entries.length; i++) {
+    void removeWhite()
+    {
+        for (size_t i = 0; i < this.entries.length; i++)
+        {
             Entry* entry = &this.entries[i];
-            if (entry.key != null && !entry.key.obj.isMarked) {
+            if (entry.key != null && !entry.key.obj.isMarked)
+            {
                 this.remove(entry.key);
             }
         }

@@ -40,6 +40,8 @@ enum OpCode
     CloseUpvalue,
     Return,
     Class,
+    Invoke,
+    Method,
 }
 
 struct Chunk

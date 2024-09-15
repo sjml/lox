@@ -86,6 +86,8 @@ size_t disassembleInstruction(Chunk* chunk, size_t offset)
         return jumpInstruction("OP_LOOP", -1, chunk, offset);
     case OpCode.Call:
         return byteInstruction("OP_CALL", chunk, offset);
+    case OpCode.Invoke:
+        return invokeInstruction("OP_INVOKE", chunk, offset);
     case OpCode.Closure:
         offset += 1;
         ubyte constIdx = chunk.code[offset++];
@@ -109,6 +111,8 @@ size_t disassembleInstruction(Chunk* chunk, size_t offset)
         return simpleInstruction("OP_RETURN", offset);
     case OpCode.Class:
         return constantInstruction("OP_CLASS", chunk, offset);
+    case OpCode.Method:
+        return constantInstruction("OP_METHOD", chunk, offset);
     default:
         writefln("Unknown opcode %d", inst);
         return offset + 1;
@@ -142,5 +146,15 @@ size_t jumpInstruction(string name, int sign, Chunk* chunk, size_t offset)
     ushort jump = chunk.code[offset + 1] << 8;
     jump |= chunk.code[offset + 2];
     writefln("%-16s %4d -> %d", name, offset, offset + 3 + sign * jump);
+    return offset + 3;
+}
+
+size_t invokeInstruction(string name, Chunk* chunk, size_t offset)
+{
+    ubyte constIdx = chunk.code[offset + 1];
+    ubyte argCount = chunk.code[offset + 2];
+    writef("%-16s (%d args) %4d '", name, argCount, constIdx);
+    chunk.constants.values[constIdx].print();
+    writeln("");
     return offset + 3;
 }
