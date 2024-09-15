@@ -310,6 +310,32 @@ struct VM
                 ubyte slot = readByte();
                 *frame.closure.upvalues[slot].location = this.peek(0);
                 break;
+            case OpCode.GetProperty:
+                if (!(this.peek(0).valType == ValueType.Obj && this.peek(0).obj.objType == ObjType.Instance)) {
+                    runtimeError("Only instances have properties.");
+                    return InterpretResult.RuntimeError;
+                }
+                ObjInstance* ins = this.peek(0).obj.asInstance();
+                ObjString* name = readString();
+                Value val;
+                if (ins.fields.get(name, &val)) {
+                    this.pop();
+                    this.push(val);
+                    break;
+                }
+                this.runtimeError("Undefined property '%s'.", fromStringz(name.chars));
+                return InterpretResult.RuntimeError;
+            case OpCode.SetProperty:
+                if (!(this.peek(1).valType == ValueType.Obj && this.peek(1).obj.objType == ObjType.Instance)) {
+                    this.runtimeError("Only instances have fields.");
+                    return InterpretResult.RuntimeError;
+                }
+                ObjInstance* ins = this.peek(1).obj.asInstance();
+                ins.fields.set(readString(), peek(0));
+                Value val = this.pop();
+                this.pop();
+                this.push(val);
+                break;
             case OpCode.Equal:
                 Value b = this.pop();
                 Value a = this.pop();
@@ -437,6 +463,9 @@ struct VM
                 this.push(result);
                 frame = &this.frames[this.frameCount - 1];
                 break;
+            case OpCode.Class:
+                this.push(Value(&ObjClass.create(readString()).obj));
+                break;
             default:
                 stderr.writefln("ERROR: Unknown opcode '%d'", inst);
                 break;
@@ -469,10 +498,13 @@ struct VM
             ObjType t = callObj.objType;
             switch (callObj.objType)
             {
+            case ObjType.Class:
+                ObjClass* c = callObj.asClass();
+                this.stackTop[-argCount - 1] = Value(&ObjInstance.create(c).obj);
+                return true;
             case ObjType.Closure:
                 ObjClosure* callClObj = callObj.asClosure();
                 return call(callClObj, argCount);
-                break;
             case ObjType.Native:
                 ObjNative* nativeObj = callObj.asNative();
                 NativeFn native = nativeObj.fn;

@@ -49,7 +49,7 @@ ParseRule[] rules = [
     /* LeftBrace    */ ParseRule(null,               null,             Precedence.None        ),
     /* RightBrace   */ ParseRule(null,               null,             Precedence.None        ),
     /* Comma        */ ParseRule(null,               null,             Precedence.None        ),
-    /* Dot          */ ParseRule(null,               null,             Precedence.None        ),
+    /* Dot          */ ParseRule(null,               &Compiler.dot,    Precedence.Call        ),
     /* Minus        */ ParseRule(&Compiler.unary,    &Compiler.binary, Precedence.Term        ),
     /* Plus         */ ParseRule(null,               &Compiler.binary, Precedence.Term        ),
     /* Semicolon    */ ParseRule(null,               null,             Precedence.None        ),
@@ -552,6 +552,18 @@ struct Compiler
         }
     }
 
+    private void classDeclaration() {
+        this.consume(TokenType.Identifier, "Expect class name.");
+        ubyte nameConstIdx = this.identifierConstant(&parser.previous);
+        this.declareVariable();
+
+        this.emitBytes(OpCode.Class, nameConstIdx);
+        this.defineVariable(nameConstIdx);
+
+        this.consume(TokenType.LeftBrace, "Expect '{' before class body.");
+        this.consume(TokenType.RightBrace, "Expect '}' after class body.");
+    }
+
     private void block()
     {
         while (!this.check(TokenType.RightBrace) && !this.check(TokenType.EndOfFile))
@@ -563,7 +575,10 @@ struct Compiler
 
     static void declaration(Compiler* self)
     {
-        if (self.match(TokenType.Fun))
+        if (self.match(TokenType.Class)) {
+            self.classDeclaration();
+        }
+        else if (self.match(TokenType.Fun))
         {
             self.funDeclaration();
         }
@@ -675,6 +690,19 @@ struct Compiler
     {
         ubyte argCount = self.argumentList();
         self.emitBytes(OpCode.Call, argCount);
+    }
+
+    static void dot(Compiler* self, bool canAssign) {
+        self.consume(TokenType.Identifier, "Expect property name after '.'.");
+        ubyte name = self.identifierConstant(&self.parser.previous);
+
+        if (canAssign && self.match(TokenType.Equal)) {
+            Compiler.expression(self);
+            self.emitBytes(OpCode.SetProperty, name);
+        }
+        else {
+            self.emitBytes(OpCode.GetProperty, name);
+        }
     }
 
     private ubyte argumentList()

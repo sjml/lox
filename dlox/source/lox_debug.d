@@ -54,6 +54,10 @@ size_t disassembleInstruction(Chunk* chunk, size_t offset)
         return byteInstruction("OP_GET_UPVALUE", chunk, offset);
     case OpCode.SetUpvalue:
         return byteInstruction("OP_SET_UPVALUE", chunk, offset);
+    case OpCode.GetProperty:
+        return constantInstruction("OP_GET_PROPERTY", chunk, offset);
+    case OpCode.SetProperty:
+        return constantInstruction("OP_SET_PROPERTY", chunk, offset);
     case OpCode.Equal:
         return simpleInstruction("OP_EQUAL", offset);
     case OpCode.Greater:
@@ -103,6 +107,8 @@ size_t disassembleInstruction(Chunk* chunk, size_t offset)
         return simpleInstruction("OP_CLOSE_UPVALUE", offset);
     case OpCode.Return:
         return simpleInstruction("OP_RETURN", offset);
+    case OpCode.Class:
+        return constantInstruction("OP_CLASS", chunk, offset);
     default:
         writefln("Unknown opcode %d", inst);
         return offset + 1;

@@ -149,6 +149,15 @@ void blackenObject(Obj* obj) {
     }
 
     switch (obj.objType) {
+        case ObjType.Class:
+            ObjClass* k = obj.asClass();
+            markObject(&k.name.obj);
+            break;
+        case ObjType.Instance:
+            ObjInstance* oi = obj.asInstance();
+            markObject(&oi.klass.obj);
+            markTable(&oi.fields);
+            break;
         case ObjType.Closure:
             ObjClosure* cl = obj.asClosure();
             markObject(&cl.fn.obj);

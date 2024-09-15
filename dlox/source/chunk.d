@@ -20,6 +20,8 @@ enum OpCode
     SetGlobal,
     GetUpvalue,
     SetUpvalue,
+    GetProperty,
+    SetProperty,
     Equal,
     Greater,
     Less,
@@ -37,6 +39,7 @@ enum OpCode
     Closure,
     CloseUpvalue,
     Return,
+    Class,
 }
 
 struct Chunk

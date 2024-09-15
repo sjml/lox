@@ -7,10 +7,13 @@ import std.conv;
 import vm : VM;
 import value : Value;
 import chunk : Chunk;
+import table : Table;
 static import memory;
 
 enum ObjType
 {
+    Class,
+    Instance,
     Closure,
     Function,
     Native,
@@ -54,6 +57,14 @@ struct Obj
 
         switch (this.objType)
         {
+        case ObjType.Class:
+            memory.free!ObjClass(&this);
+            break;
+        case ObjType.Instance:
+            ObjInstance* oi = this.asInstance();
+            oi.fields.free();
+            memory.free!ObjInstance(oi);
+            break;
         case ObjType.Closure:
             ObjClosure* oc = this.asClosure();
             memory.freeArray!(ObjUpvalue*)(oc.upvalues, oc.upvalueCount);
@@ -84,6 +95,12 @@ struct Obj
     {
         switch (this.objType)
         {
+        case ObjType.Class:
+            writef("%s", fromStringz(this.asClass().name.chars));
+            break;
+        case ObjType.Instance:
+            writef("%s instance", fromStringz(this.asInstance().klass.name.chars));
+            break;
         case ObjType.Closure:
             this.asClosure().fn.obj.print();
             break;
@@ -111,6 +128,25 @@ struct Obj
     }
 
     // TODO: these functions feel like they could be templated
+    //      (but mapping to the ObjType might not work :( )
+    pragma(inline) ObjClass* asClass()
+    {
+        if (this.objType != ObjType.Class)
+        {
+            return null;
+        }
+        return cast(ObjClass*)&this;
+    }
+
+    pragma(inline) ObjInstance* asInstance()
+    {
+        if (this.objType != ObjType.Instance)
+        {
+            return null;
+        }
+        return cast(ObjInstance*)&this;
+    }
+
     pragma(inline) ObjClosure* asClosure()
     {
         if (this.objType != ObjType.Closure)
@@ -154,6 +190,31 @@ struct Obj
             return null;
         }
         return cast(ObjUpvalue*)&this;
+    }
+}
+
+struct ObjClass {
+    Obj obj;
+    ObjString* name;
+
+    static ObjClass* create(ObjString* name) {
+        Obj* ret = Obj.allocateObject(ObjClass.sizeof, ObjType.Class);
+        ObjClass* kRet = ret.asClass();
+        kRet.name = name;
+        return kRet;
+    }
+}
+
+struct ObjInstance {
+    Obj obj;
+    ObjClass* klass;
+    Table fields;
+
+    static ObjInstance* create(ObjClass* klass) {
+        Obj* ret = Obj.allocateObject(ObjInstance.sizeof, ObjType.Instance);
+        ObjInstance* iRet = ret.asInstance();
+        iRet.klass = klass;
+        return iRet;
     }
 }
 
