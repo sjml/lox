@@ -1,4 +1,4 @@
-# {p|~~z | r |~~ d}lox
+# {p|~~&nbsp;z | r |~~ d}lox
 
 I made my way through [_Crafting Interpreters_](https://craftinginterpreters.com/), using languages not in the book. This was helpful in a few ways! 
 
@@ -11,7 +11,7 @@ I made my way through [_Crafting Interpreters_](https://craftinginterpreters.com
 ## testing
 `plox` and `dlox`, both pass the _Crafting Interpreters_ test suite. You need Dart 2 (not Dart 3, alas) installed to run it though. 
 
-There are other ways of getting the pre-reqs:
+There are other ways of getting the pre-reqs, but this works:
 ```
 brew install dart-lang/dart/dart@2.19 python ldc dub
 ```
@@ -21,9 +21,32 @@ Then to see the test suite go nuts:
 python test/run_tests.py
 ```
 
-If you want to see the benchmark time for the Python version (it's slow, like literally over 100x slower):
+If you want to see the benchmark time for the Python version (it's slow, like literally over 100× slower):
 ```
-python test/run_tests.py bench_py
+python test/run_tests.py bench_plox
+```
+
+On my M1 MacBook Pro:
+```
+%> python ./test/run_tests.py
+Updating book repo...
+Installing testing dependencies...
+Running jlox test suite with Python AST-walk interpreter...
+All 239 tests passed (556 expectations).
+Running clox test suite with D-lang bytecode interpreter...
+All 246 tests passed (568 expectations).
+Running clox test suite with canonical clox interpreter...
+All 246 tests passed (568 expectations).
+
+ plox test suite execution time: 8.77459
+ clox test suite execution time: 2.93690
+cclox test suite execution time: 2.37257
+
+
+Running zoo benchmark...
+ plox benchmark time: 274.2626838684082
+ clox benchmark time: 2.66735
+cclox benchmark time: 2.50378
 ```
 
 ## plox
