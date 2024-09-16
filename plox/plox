@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
 # PYTHONPATH might need to be set in environment depending on where you call from;
 #  this is just for the test suite which wants a single exe path

@@ -9,11 +9,12 @@ I made my way through [_Crafting Interpreters_](https://craftinginterpreters.com
 * In the case of D, actually finish the project!
 
 ## testing
-`plox` and `dlox`, both pass the _Crafting Interpreters_ test suite. You need Dart 2 (not Dart 3, alas) installed to run it though. 
+`plox` and `dlox` both pass the _Crafting Interpreters_ test suite. You need Dart 2 (not Dart 3, alas) installed to run it though. 
 
-There are other ways of getting the pre-reqs, but this works:
+There are other ways of getting the pre-reqs, but this works. 
 ```
 brew install dart-lang/dart/dart@2.19 python ldc dub
+brew link dart@2.19
 ```
 
 Then to see the test suite go nuts: 
