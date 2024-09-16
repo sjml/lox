@@ -1,67 +1,13 @@
 import sys
 import os
 import subprocess
+import time
 
 ROOT_PATH = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
 TMP_DIR = os.path.join(ROOT_PATH, "test", "tmp")
 BOOK_REPO_PATH = os.path.join(TMP_DIR, "craftinginterpreters")
 RELATIVE_JLOX_PATH = "../../../plox/plox"
 RELATIVE_CLOX_PATH = "../../../dlox/dlox"
-
-JLOX_TESTS = {
-     5 : "chap05_representing",
-     6 : "chap06_parsing",
-     7 : "chap07_evaluating",
-     8 : "chap08_statements",
-     9 : "chap09_control",
-    10 : "chap10_functions",
-    11 : "chap11_resolving",
-    12 : "chap12_classes",
-    13 : "chap13_inheritance",
-}
-
-CLOX_TESTS = {
-    17 : "chap17_compiling",
-    18 : "chap18_types",
-    19 : "chap19_strings",
-    20 : "chap20_hash",
-    21 : "chap21_global",
-    22 : "chap22_local",
-    23 : "chap23_jumping",
-    24 : "chap24_calls",
-    25 : "chap25_closures",
-    26 : "chap26_garbage",
-    27 : "chap27_classes",
-    28 : "chap28_methods",
-    29 : "chap29_superclasses",
-    30 : "chap30_optimization",
-}
-
-args = sys.argv[1:]
-if len(args) < 1:
-    sys.stderr.write("Give a chapter number to test!\n")
-    sys.exit(1)
-try:
-    chapter = int(args[0])
-except:
-    sys.stderr.write("Chapter number has to be integer!\n")
-    sys.exit(1)
-
-env = os.environ.copy()
-if chapter in JLOX_TESTS:
-    tester = RELATIVE_JLOX_PATH
-    env["PYTHONPATH"] = ROOT_PATH
-    tester_name = "jlox"
-    suite = JLOX_TESTS[chapter]
-elif chapter in CLOX_TESTS:
-    tester = RELATIVE_CLOX_PATH
-    tester_name = "clox"
-    suite = CLOX_TESTS[chapter]
-    print("Building dlox...")
-    subprocess.run(["dub", "build", "--build=release", "--config=with-optimizations"], cwd=os.path.join(ROOT_PATH, "dlox"))
-else:
-    sys.stderr.write("Invalid chapter for testing!\n")
-    sys.exit(1)
 
 os.makedirs(TMP_DIR, exist_ok=True)
 if not os.path.exists(BOOK_REPO_PATH):
@@ -89,7 +35,58 @@ os.chdir(BOOK_REPO_PATH)
 print("Installing testing dependencies...")
 result = subprocess.run(["make", "get"], stdout=open(os.devnull, 'wb'))
 
-print(f"Running {tester_name} tests for chapter {chapter}...")
+
+env = os.environ.copy()
+tester = RELATIVE_JLOX_PATH
+env["PYTHONPATH"] = ROOT_PATH
+tester_name = "jlox"
+suite = "jlox"
+print(f"Running jlox test suite with Python AST-walk interpreter...")
+jlox_start = time.time()
 res = subprocess.run(["dart", "./tool/bin/test.dart", suite, "--interpreter", tester], env=env)
+jlox_end = time.time()
 if (res.returncode != 0):
     sys.exit(res.returncode)
+
+env = os.environ.copy()
+tester = RELATIVE_CLOX_PATH
+tester_name = "clox"
+suite = "clox"
+print(f"Running clox test suite with D-lang bytecode interpreter...")
+clox_start = time.time()
+res = subprocess.run(["dart", "./tool/bin/test.dart", suite, "--interpreter", tester], env=env)
+clox_end = time.time()
+if (res.returncode != 0):
+    sys.exit(res.returncode)
+
+env = os.environ.copy()
+tester = RELATIVE_CLOX_PATH
+tester_name = "clox"
+suite = "clox"
+print(f"Running clox test suite with canonical clox interpreter...")
+cclox_start = time.time()
+res = subprocess.run(["dart", "./tool/bin/test.dart", suite, "--interpreter", "./build/clox"], env=env)
+cclox_end = time.time()
+if (res.returncode != 0):
+    sys.exit(res.returncode)
+
+
+print(f"\n plox test suite execution time: {jlox_end - jlox_start:.5f}\n clox test suite execution time: {clox_end - clox_start:.5f}\ncclox test suite execution time: {cclox_end - cclox_start:.5f}")
+print()
+print()
+
+print("Running zoo benchmark...")
+if ("bench_plox" in sys.argv):
+    env = os.environ.copy()
+    env["PYTHONPATH"] = ROOT_PATH
+    jres = subprocess.run([RELATIVE_JLOX_PATH, "../../programs/zoo.lox"], env=env, capture_output=True)
+    jtime = jres.stdout.decode("utf-8").splitlines()[0]
+    print(f" plox benchmark time: {jtime}")
+else:
+    print(f" plox benchmark time: N/A")
+
+cres = subprocess.run([RELATIVE_CLOX_PATH, "../../programs/zoo.lox"], capture_output=True)
+ctime = cres.stdout.decode("utf-8").splitlines()[0]
+ccres = subprocess.run(["./build/clox", "../../programs/zoo.lox"], capture_output=True)
+cctime = ccres.stdout.decode("utf-8").splitlines()[0]
+print(f" clox benchmark time: {ctime}\ncclox benchmark time: {cctime}")

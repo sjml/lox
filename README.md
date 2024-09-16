@@ -1,13 +1,30 @@
 # {p|~~z | r |~~ d}lox
 
-I'm making my way through [_Crafting Interpreters_](https://craftinginterpreters.com/), using languages not in the book. This is helpful in a few ways! 
+I made my way through [_Crafting Interpreters_](https://craftinginterpreters.com/), using languages not in the book. This was helpful in a few ways! 
 
-* Make sure I actually understand the concepts instead of just copying code, since I had to translate (from Java -> Python in Part II and from C -> Zig/Rust/D in Part III)
+* Made sure I actually understood the concepts instead of just copying code, since I had to translate (from Java -> Python in Part II and from C -> Zig/Rust/D in Part III)
 * In the case of Zig, actually build something useful in a language I've been meaning to learn
   * This might have been a mistake! As explaned below in the [zlox section](#zlox)
 * In the case of Rust, get more practice in a useful language! 
 * In the case of D, actually finish the project!
 
+## testing
+`plox` and `dlox`, both pass the _Crafting Interpreters_ test suite. You need Dart 2 (not Dart 3, alas) installed to run it though. 
+
+There are other ways of getting the pre-reqs:
+```
+brew install dart-lang/dart/dart@2.19 python ldc dub
+```
+
+Then to see the test suite go nuts: 
+```
+python test/run_tests.py
+```
+
+If you want to see the benchmark time for the Python version (it's slow, like literally over 100x slower):
+```
+python test/run_tests.py bench_py
+```
 
 ## plox
 
@@ -25,6 +42,8 @@ A [D](https://dlang.org/) implementation of Part III. This is my first code in D
 In any case, its similarity to C works to my advantage here — it lets me do low-level memory manipulation like C, but the semantics are _juuuuuust_ different enough that I have to think as I write code instead of just mindlessly copying. So hey, there we go. 
 
 (Made and tested with LDC 1.39.0)
+
+(At one point this was actually running *faster* than the canonical C version from the book... until after the optimizations chapter and the end. C'est la vie. Still very close on the zoo benchmark, though, only about 5% slower in my tests.)
 
 
 ## rlox
@@ -45,19 +64,3 @@ Anyway, I learned a lot both about bytecode machines AND Zig, so hey, mission ac
 (Made and tested with Zig 0.13.0.)
 
 Midway through chapter 19 I started running into some issues with using a still-maturing language like Zig. Things change fast and documentation was not always easy to find. Eventually I ran into a problem where the compiler itself was panicking and having trouble printing its own error messages; I unfortunately lack the energy to track down compiler issues in a language I am still learning myself, so leaving this partially completed. I may return to this someday after Zig has had more time to bake. 
-
-
-## testing
-`plox`, at least, passes the _Crafting Interpreters_ test suite. (`rlox` is still in progress.) You need Dart 2 (not Dart 3, alas) installed to run it though. 
-
-There are other ways of Dart-ing but this works:
-
-```
-brew install dart-lang/dart/dart@2.19
-```
-
-I assume you already have Python installed. This will run all the tests indicating compliance with the AST-walker implementation from the book (jlox). The 13 is for chapter 13.
-
-```
-python test/run_tests.py 13
-```
