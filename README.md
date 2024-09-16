@@ -66,7 +66,7 @@ In any case, its similarity to C works to my advantage here — it lets me do lo
 
 (Made and tested with LDC 1.39.0)
 
-(At one point this was actually running *faster* than the canonical C version from the book... until after the optimizations chapter and the end. C'est la vie. Still very close on the zoo benchmark, though, only about 5% slower in my tests.)
+(For a while this was actually running *faster* than the canonical C version from the book... until the optimizations chapter at the end. C'est la vie. Still very close on the zoo benchmark, though, only about 5% slower in my tests.)
 
 
 ## rlox
