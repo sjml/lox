@@ -14,3 +14,6 @@ dlox-test-*
 *.o
 *.obj
 *.lst
+
+/dlox-fast
+/dlox-slow

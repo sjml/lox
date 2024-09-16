@@ -7,7 +7,7 @@ static import core.stdc.string;
 
 import vm : VM;
 import compiler : Compiler;
-import value : Value, ValueType, ValueArray;
+import value;
 import lobj;
 import table;
 
@@ -54,7 +54,7 @@ void markRoots() {
 }
 
 void markValue(Value val) {
-    if (val.valType == ValueType.Obj) {
+    if (val.isObj()) {
         markObject(val.obj);
     }
 }

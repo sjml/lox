@@ -58,7 +58,7 @@ elif chapter in CLOX_TESTS:
     tester_name = "clox"
     suite = CLOX_TESTS[chapter]
     print("Building dlox...")
-    subprocess.run(["dub", "build", "--build=release"], cwd=os.path.join(ROOT_PATH, "dlox"))
+    subprocess.run(["dub", "build", "--build=release", "--config=with-optimizations"], cwd=os.path.join(ROOT_PATH, "dlox"))
 else:
     sys.stderr.write("Invalid chapter for testing!\n")
     sys.exit(1)

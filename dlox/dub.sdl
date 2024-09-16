@@ -8,6 +8,11 @@ configuration "default" {
     targetType "executable"
 }
 
+configuration "with-optimizations" {
+    targetType "executable"
+    versions "Optimized" "NaNBoxing"
+}
+
 configuration "tracing" {
     targetType "executable"
     versions "DebugTraceExecution" "DebugPrintCode"

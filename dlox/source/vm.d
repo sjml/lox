@@ -9,7 +9,7 @@ import core.stdc.time;
 
 import chunk : Chunk, OpCode;
 import compiler : Compiler, FunctionType;
-import value : Value, ValueType;
+import value;
 import memory : freeGrayStack;
 import lobj;
 import table : Table;
@@ -138,8 +138,7 @@ struct VM {
     }
 
     pragma(inline) private bool binaryNumericOperation(BinaryOperator op) {
-        if (!(this.peek(0).valType == ValueType.Number) || !(this.peek(1)
-                .valType == ValueType.Number)) {
+        if (!(this.peek(0).isNumber()) || !(this.peek(1).isNumber())) {
             this.runtimeError("Operands must be numbers.");
             return false;
         }
@@ -280,8 +279,7 @@ struct VM {
                 *frame.closure.upvalues[slot].location = this.peek(0);
                 break;
             case OpCode.GetProperty:
-                if (!(this.peek(0)
-                        .valType == ValueType.Obj && this.peek(0).obj.objType == ObjType.Instance)) {
+                if (!(this.peek(0).isObj() && this.peek(0).obj.objType == ObjType.Instance)) {
                     runtimeError("Only instances have properties.");
                     return InterpretResult.RuntimeError;
                 }
@@ -299,8 +297,7 @@ struct VM {
                 }
                 break;
             case OpCode.SetProperty:
-                if (!(this.peek(1)
-                        .valType == ValueType.Obj && this.peek(1).obj.objType == ObjType.Instance)) {
+                if (!(this.peek(1).isObj() && this.peek(1).obj.objType == ObjType.Instance)) {
                     this.runtimeError("Only instances have fields.");
                     return InterpretResult.RuntimeError;
                 }
@@ -336,8 +333,7 @@ struct VM {
                 if (this.peek(0).isObjType(ObjType.String)
                         && (this.peek(1).isObjType(ObjType.String))) {
                     this.concatenateStrings();
-                } else if (this.peek(0).valType == ValueType.Number
-                        && (this.peek(1).valType == ValueType.Number)) {
+                } else if (this.peek(0).isNumber() && (this.peek(1).isNumber())) {
                     double b = this.pop().number;
                     double a = this.pop().number;
                     this.push(Value(a + b));
@@ -365,7 +361,7 @@ struct VM {
                 this.push(Value(pop().isFalsey()));
                 break;
             case OpCode.Negate:
-                if (this.peek(0).valType != ValueType.Number) {
+                if (!this.peek(0).isNumber()) {
                     this.runtimeError("Operand must be a number.");
                     return InterpretResult.RuntimeError;
                 }
@@ -485,7 +481,7 @@ struct VM {
     }
 
     private bool callValue(Value callee, int argCount) {
-        if (callee.valType == ValueType.Obj) {
+        if (callee.isObj()) {
             Obj* callObj = callee.obj;
             ObjType t = callObj.objType;
             switch (callObj.objType) {
@@ -524,7 +520,7 @@ struct VM {
 
     private bool invoke(ObjString* name, int argCount) {
         Value receiver = peek(argCount);
-        if (!receiver.valType == ValueType.Obj || !receiver.obj.objType == ObjType.Instance) {
+        if (!receiver.isObjType(ObjType.Instance)) {
             this.runtimeError("Only instances have methods.");
             return false;
         }

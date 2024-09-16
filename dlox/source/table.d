@@ -3,7 +3,7 @@ module table;
 import std.algorithm.comparison : equal;
 
 import lobj : ObjString;
-import value : Value, ValueType;
+import value;
 import memory : growCapacity, markObject, markValue;
 
 static const float TABLE_MAX_LOAD = 0.75;
@@ -30,7 +30,7 @@ struct Table {
 
         Entry* entry = Table.findEntry(this.entries, key);
         bool isNewKey = entry.key == null;
-        if (isNewKey && entry.value.valType == ValueType.Nil) {
+        if (isNewKey && entry.value.isNil()) {
             this.count += 1;
         }
         entry.key = key;
@@ -86,13 +86,18 @@ struct Table {
     }
 
     static Entry* findEntry(Entry[] haystack, ObjString* key) {
-        uint idx = key.hash % haystack.length;
+        version(Optimized) {
+            uint idx = key.hash & (haystack.length - 1);
+        }
+        else {
+            uint idx = key.hash % haystack.length;
+        }
         Entry* tombstone = null;
 
         while (true) {
             Entry* entry = &haystack[idx];
             if (entry.key == null) {
-                if (entry.value.valType == ValueType.Nil) {
+                if (entry.value.isNil()) {
                     return tombstone != null ? tombstone : entry;
                 } else {
                     if (tombstone == null) {
@@ -103,7 +108,12 @@ struct Table {
                 return entry;
             }
 
-            idx = (idx + 1) % haystack.length;
+            version(Optimized) {
+                idx = (idx + 1) & (haystack.length - 1);
+            }
+            else {
+                idx = (idx + 1) % haystack.length;
+            }
         }
     }
 
@@ -112,11 +122,16 @@ struct Table {
             return null;
         }
 
-        uint index = hash % this.entries.length;
+        version(Optimized) {
+            uint index = hash & (this.entries.length - 1);
+        }
+        else {
+            uint index = hash % this.entries.length;
+        }
         while (true) {
             Entry* entry = &this.entries[index];
             if (entry.key == null) {
-                if (entry.value.valType == ValueType.Nil) {
+                if (entry.value.isNil()) {
                     return null;
                 }
             } else if ((entry.key.length == needle.length)
@@ -125,7 +140,12 @@ struct Table {
                 return entry.key;
             }
 
-            index = (index + 1) % this.entries.length;
+            version(Optimized) {
+                index = (index + 1) & (this.entries.length - 1);
+            }
+            else {
+                index = (index + 1) % this.entries.length;
+            }
         }
     }
 
